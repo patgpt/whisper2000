@@ -141,6 +141,8 @@ class AudioService {
         codec: _streamCodec,
         numChannels: _numChannels,
         sampleRate: _sampleRate,
+        bufferSize: 4096, // Example buffer size
+        interleaved: false, // Assuming non-interleaved PCM data
       );
       logger.info('AudioService: Player started, waiting for stream data...');
 
