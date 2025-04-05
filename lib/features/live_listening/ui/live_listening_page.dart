@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../widgets/waveform_visualizer.dart'; // Updated path
-import '../viewmodel/listening_state_provider.dart'; // Updated path
+import '../../../widgets/waveform_visualizer.dart';
+import '../viewmodel/live_listening_viewmodel.dart';
 
 // Convert to ConsumerWidget
 class LiveListeningPage extends ConsumerWidget {
@@ -10,10 +10,9 @@ class LiveListeningPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Add WidgetRef
-    // Read state and notifier
-    final listeningState = ref.watch(listeningStateProvider);
-    final listeningNotifier = ref.read(listeningStateProvider.notifier);
+    // Use the new viewmodel provider name
+    final liveState = ref.watch(liveListeningViewModelProvider);
+    final liveViewModel = ref.read(liveListeningViewModelProvider.notifier);
 
     // Handle stopping listening when leaving the page
     // Note: This is a simple approach. More robust handling might be needed.
@@ -27,7 +26,7 @@ class LiveListeningPage extends ConsumerWidget {
         // Add a leading back button that also stops listening
         leading: CupertinoNavigationBarBackButton(
           onPressed: () {
-            listeningNotifier.stopListening();
+            liveViewModel.stopListening();
             Navigator.of(context).pop();
           },
         ),
@@ -41,9 +40,7 @@ class LiveListeningPage extends ConsumerWidget {
               const SizedBox(height: 20),
               Center(
                 child: Text(
-                  listeningState.isListening
-                      ? 'Currently Listening'
-                      : 'Stopped',
+                  liveState.isListening ? 'Currently Listening' : 'Stopped',
                   style: CupertinoTheme.of(context).textTheme.navTitleTextStyle,
                 ),
               ),
@@ -51,41 +48,41 @@ class LiveListeningPage extends ConsumerWidget {
               // Animated waveform or mic icon placeholder
               Center(
                 child: WaveformVisualizer(
-                  isActive: listeningState.isListening,
-                  level: listeningState.waveformLevel,
+                  isActive: liveState.isListening,
+                  level: liveState.waveformLevel,
                 ),
               ),
               const SizedBox(height: 40),
               // Output Volume Meter
               const Text('Output Volume'),
               CupertinoSlider(
-                value: listeningState.outputVolume,
+                value: liveState.outputVolume,
                 min: 0.0,
                 max: 1.0,
-                onChanged: listeningNotifier.setOutputVolume,
+                onChanged: liveViewModel.setOutputVolume,
               ),
               const SizedBox(height: 30),
               _buildToggleSwitch(
                 'Noise Suppression',
-                listeningState.noiseSuppression,
-                listeningNotifier.setNoiseSuppression,
+                liveState.noiseSuppression,
+                liveViewModel.setNoiseSuppression,
               ),
               _buildToggleSwitch(
                 'Voice Boost',
-                listeningState.voiceBoost,
-                listeningNotifier.setVoiceBoost,
+                liveState.voiceBoost,
+                liveViewModel.setVoiceBoost,
               ),
               _buildToggleSwitch(
                 'Directional Mode',
-                listeningState.directionalMode,
-                listeningNotifier.setDirectionalMode,
+                liveState.directionalMode,
+                liveViewModel.setDirectionalMode,
               ),
               const Spacer(),
               CupertinoButton(
                 color: CupertinoColors.destructiveRed,
-                // Use notifier method to stop
+                // Use viewmodel method to stop
                 onPressed: () {
-                  listeningNotifier.stopListening();
+                  liveViewModel.stopListening();
                   Navigator.of(context).pop(); // Also navigate back
                 },
                 child: const Text('Stop Listening'),
