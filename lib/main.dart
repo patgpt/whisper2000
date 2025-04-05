@@ -6,7 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'features/home/ui/home_page.dart';
 import 'features/recordings/ui/recordings_page.dart';
 import 'features/settings/ui/settings_page.dart';
-import 'features/settings/viewmodel/settings_provider.dart';
+import 'features/settings/viewmodel/settings_viewmodel.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -27,7 +27,7 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the FutureProvider for SharedPreferences
+    // Watch the FutureProvider defined in settings_viewmodel.dart
     final sharedPreferencesAsyncValue = ref.watch(sharedPreferencesProvider);
 
     // Handle loading/error states for SharedPreferences
@@ -45,10 +45,9 @@ class MyApp extends ConsumerWidget {
             ),
           ),
       data: (_) {
-        // We don't need the prefs data directly here
-        // Once loaded, watch the settingsProvider for dark mode state
+        // Watch the auto-generated SettingsViewModel provider
         final isDarkMode = ref.watch(
-          settingsProvider.select((s) => s.isDarkMode),
+          settingsViewModelProvider.select((s) => s.isDarkMode),
         );
 
         return CupertinoApp(

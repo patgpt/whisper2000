@@ -1,11 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:whisper2000/core/theme/app_theme.dart';
 
 import '../../../widgets/listening_mode_toggle.dart';
 import '../../../widgets/waveform_visualizer.dart';
 import '../../live_listening/ui/live_listening_page.dart';
-import '../../live_listening/viewmodel/listening_state_provider.dart';
+import '../../live_listening/viewmodel/live_listening_viewmodel.dart';
 import '../viewmodel/home_viewmodel.dart';
 
 class HomePage extends ConsumerWidget {
@@ -15,7 +14,9 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final homeState = ref.watch(homeViewModelProvider);
     final homeViewModel = ref.read(homeViewModelProvider.notifier);
-    final listeningViewModel = ref.read(listeningStateProvider.notifier);
+    final listeningViewModel = ref.read(
+      liveListeningViewModelProvider.notifier,
+    );
 
     void navigateToLiveListening() {
       listeningViewModel.startListening();

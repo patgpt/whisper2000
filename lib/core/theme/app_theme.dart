@@ -3,7 +3,8 @@ import 'package:flutter/cupertino.dart';
 /// Centralized theme configuration for the app.
 class AppTheme {
   // Define core colors, maybe using OKLCH if desired for v4 Tailwind compatibility
-  static const CupertinoDynamicColor primaryColor = CupertinoColors.systemBlue;
+  static const CupertinoDynamicColor primaryColor =
+      CupertinoColors.systemPurple;
   static const CupertinoDynamicColor secondaryColor =
       CupertinoColors.systemIndigo;
   static const CupertinoDynamicColor destructiveColor =

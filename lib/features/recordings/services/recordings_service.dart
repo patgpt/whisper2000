@@ -7,9 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/audio/audio_service.dart'; // May need for mic access if not piped
 import '../../../core/utils/logger.dart';
-import '../ui/recordings_page.dart'; // For Recording model
 import '../viewmodel/recordings_viewmodel.dart'; // To add recording metadata
 
 part 'recordings_service.g.dart';

@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -58,12 +57,11 @@ final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
 
 @Riverpod(keepAlive: true) // Keep settings loaded
 class SettingsViewModel extends _$SettingsViewModel {
-  // Use SettingsService for persistence logic
   late final SettingsService _settingsService;
 
   @override
   SettingsState build() {
-    // Depend on the service (which depends on SharedPreferences)
+    // Depend on the *generated service provider*
     _settingsService = ref.watch(settingsServiceProvider);
 
     // Load initial state from the service
