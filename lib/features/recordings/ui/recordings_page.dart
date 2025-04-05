@@ -69,15 +69,37 @@ class RecordingsPage extends ConsumerWidget {
         return FutureBuilder<String?>(
           future: viewModel.getTranscript(recording.id),
           builder: (context, snapshot) {
-            String displayMessage;
+            Widget messageWidget;
+            bool transcriptionComplete = false;
+            bool canTranscribe = true; // Assume possible initially
+
             if (snapshot.connectionState == ConnectionState.waiting) {
-              displayMessage = 'Loading transcript...';
+              messageWidget = const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: CupertinoActivityIndicator(),
+              );
+              canTranscribe = false; // Don't allow trigger while loading
             } else if (snapshot.hasError) {
-              displayMessage = 'Error loading transcript: ${snapshot.error}';
-            } else if (snapshot.hasData && snapshot.data != null) {
-              displayMessage = snapshot.data!;
+              messageWidget = Text(
+                'Error: ${snapshot.error}',
+                style: const TextStyle(color: CupertinoColors.systemRed),
+                textAlign: TextAlign.center,
+              );
+            } else if (snapshot.hasData &&
+                snapshot.data != null &&
+                !snapshot.data!.startsWith('[')) {
+              // Success and not an error placeholder
+              messageWidget = Text(snapshot.data!, textAlign: TextAlign.center);
+              transcriptionComplete = true;
+              canTranscribe = false; // Already transcribed
             } else {
-              displayMessage = 'No transcript available.';
+              // No data, or it's an error placeholder like "[Transcription Failed]"
+              messageWidget = Text(
+                snapshot.data ?? 'No transcript available.',
+                textAlign: TextAlign.center,
+              );
+              // Allow retrying transcription if it failed or hasn't run
+              canTranscribe = true;
             }
 
             return CupertinoActionSheet(
@@ -91,16 +113,27 @@ class RecordingsPage extends ConsumerWidget {
                     filePath: recording.filePath,
                   ),
                   const SizedBox(height: 15),
-                  Text(displayMessage, textAlign: TextAlign.center),
+                  // Use the widget built above
+                  messageWidget,
                 ],
               ),
               actions: <CupertinoActionSheetAction>[
                 CupertinoActionSheetAction(
-                  child: const Text('Transcribe'),
-                  onPressed: () {
-                    viewModel.transcribeRecording(recording.id);
-                    Navigator.pop(context);
-                  },
+                  // Disable if transcription is done or loading
+                  isDefaultAction: canTranscribe,
+                  onPressed:
+                      canTranscribe
+                          ? () {
+                            viewModel.transcribeRecording(recording.id);
+                            Navigator.pop(context);
+                            // Optionally show a temp message "Transcription started..."
+                          }
+                          : () {}, // Provide empty non-null callback when disabled
+                  child: Text(
+                    transcriptionComplete
+                        ? 'Transcription Complete'
+                        : 'Transcribe',
+                  ),
                 ),
                 CupertinoActionSheetAction(
                   isDestructiveAction: true,
