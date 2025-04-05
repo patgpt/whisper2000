@@ -17,6 +17,7 @@ class RecordingAdapter extends TypeAdapter<Recording> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return Recording(
+      id: fields[3] as String,
       title: fields[0] as String,
       dateTime: fields[1] as DateTime,
       preview: fields[2] as String,
@@ -26,13 +27,15 @@ class RecordingAdapter extends TypeAdapter<Recording> {
   @override
   void write(BinaryWriter writer, Recording obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.title)
       ..writeByte(1)
       ..write(obj.dateTime)
       ..writeByte(2)
-      ..write(obj.preview);
+      ..write(obj.preview)
+      ..writeByte(3)
+      ..write(obj.id);
   }
 
   @override
