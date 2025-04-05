@@ -3,7 +3,9 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart'; // For generating IDs
 
 import '../../../core/audio/audio_service.dart'; // Import AudioService
+import '../../../core/transcription/transcription_service.dart';
 import '../../../core/utils/logger.dart';
+import '../services/recordings_service.dart';
 import '../ui/recordings_page.dart';
 
 part 'recordings_viewmodel.g.dart';
@@ -85,10 +87,41 @@ class RecordingsViewModel extends _$RecordingsViewModel {
   /// Fetches the full transcript for a recording.
   Future<String?> getTranscript(String id) async {
     final recording = _recordingBox.get(id);
-    if (recording == null) return null;
+    if (recording == null) {
+      logger.warning('Cannot get transcript for $id: Not found.');
+      return null;
+    }
     logger.info('Fetching transcript for: ${recording.title}');
-    // TODO: Implement transcript loading logic
-    // - Load from file path stored in Recording object or separate storage.
-    return "Placeholder transcript for ${recording.title}...";
+
+    // TODO: Implement actual transcript loading
+    // 1. Check if transcript already exists (e.g., in Recording object/Hive)
+    //    if (recording.transcript != null) return recording.transcript;
+    // 2. If not, call TranscriptionService
+    final transcript = await ref
+        .read(transcriptionServiceProvider)
+        .transcribeAudioFile(recording.filePath);
+    // 3. (Optional) Save the retrieved transcript back to the Recording object in Hive
+    //    if (transcript != null) {
+    //       final updatedRecording = recording.copyWith(transcript: transcript, preview: transcript.substring(0, min(50, transcript.length)));
+    //       await _recordingBox.put(id, updatedRecording);
+    //       state = _loadRecordingsFromBox(); // Update UI state if preview changed
+    //    }
+
+    return transcript ?? "[Transcription Failed]";
+  }
+
+  /// Initiates transcription for a specific recording.
+  /// Called explicitly, e.g., from a button.
+  Future<void> transcribeRecording(String id) async {
+    logger.info('Manual transcription requested for recording ID: $id');
+    final transcript = await getTranscript(id); // Reuse getTranscript logic
+    if (transcript != null) {
+      logger.info('Manual transcription completed for $id.');
+      // Optionally update state or show confirmation
+    } else {
+      logger.warning('Manual transcription failed for $id.');
+      // Optionally show error message
+    }
+    // Note: getTranscript already handles saving if implemented
   }
 }

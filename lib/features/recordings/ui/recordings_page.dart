@@ -41,36 +41,58 @@ class RecordingsPage extends ConsumerWidget {
 
     showCupertinoModalPopup(
       context: context,
-      builder:
-          (BuildContext context) => CupertinoActionSheet(
-            title: Text(recording.title),
-            message: Text(
-              'Full transcript would appear here.\n${recording.preview}...',
-            ),
-            actions: <CupertinoActionSheetAction>[
-              CupertinoActionSheetAction(
-                child: const Text('Play'),
+      builder: (BuildContext context) {
+        return FutureBuilder<String?>(
+          future: viewModel.getTranscript(recording.id),
+          builder: (context, snapshot) {
+            String displayMessage;
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              displayMessage = 'Loading transcript...';
+            } else if (snapshot.hasError) {
+              displayMessage = 'Error loading transcript: ${snapshot.error}';
+            } else if (snapshot.hasData && snapshot.data != null) {
+              displayMessage = snapshot.data!;
+            } else {
+              displayMessage = 'No transcript available.';
+            }
+
+            return CupertinoActionSheet(
+              title: Text(recording.title),
+              message: Text(displayMessage),
+              actions: <CupertinoActionSheetAction>[
+                CupertinoActionSheetAction(
+                  child: const Text('Play'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    viewModel.playRecording(recording.id);
+                  },
+                ),
+                CupertinoActionSheetAction(
+                  child: const Text('Transcribe'),
+                  onPressed: () {
+                    viewModel.transcribeRecording(recording.id);
+                    Navigator.pop(context);
+                  },
+                ),
+                CupertinoActionSheetAction(
+                  isDestructiveAction: true,
+                  child: const Text('Delete'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    viewModel.deleteRecording(recording.id);
+                  },
+                ),
+              ],
+              cancelButton: CupertinoActionSheetAction(
+                child: const Text('Cancel'),
                 onPressed: () {
                   Navigator.pop(context);
-                  viewModel.playRecording(recording.id);
                 },
               ),
-              CupertinoActionSheetAction(
-                isDestructiveAction: true,
-                child: const Text('Delete'),
-                onPressed: () {
-                  Navigator.pop(context);
-                  viewModel.deleteRecording(recording.id);
-                },
-              ),
-            ],
-            cancelButton: CupertinoActionSheetAction(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.pop(context);
-              },
-            ),
-          ),
+            );
+          },
+        );
+      },
     );
   }
 
