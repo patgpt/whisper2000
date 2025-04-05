@@ -19,6 +19,8 @@ class Recording {
   final String id;
   @HiveField(4)
   final String filePath;
+  @HiveField(5)
+  final String? transcript;
 
   Recording({
     required this.id,
@@ -26,7 +28,27 @@ class Recording {
     required this.dateTime,
     required this.preview,
     required this.filePath,
+    this.transcript,
   });
+
+  Recording copyWith({
+    String? id,
+    String? title,
+    DateTime? dateTime,
+    String? preview,
+    String? filePath,
+    String? transcript,
+    bool setTranscriptNull = false,
+  }) {
+    return Recording(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      dateTime: dateTime ?? this.dateTime,
+      preview: preview ?? this.preview,
+      filePath: filePath ?? this.filePath,
+      transcript: setTranscriptNull ? null : (transcript ?? this.transcript),
+    );
+  }
 }
 
 class RecordingsPage extends ConsumerWidget {
