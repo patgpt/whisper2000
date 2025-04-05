@@ -1,9 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
+import 'package:intl/intl.dart';
 
 import '../../../widgets/recording_card.dart';
-import '../viewmodel/recording_provider.dart';
+import '../viewmodel/recordings_viewmodel.dart';
 
 part 'recordings_page.g.dart';
 
@@ -15,8 +16,11 @@ class Recording {
   final DateTime dateTime;
   @HiveField(2)
   final String preview;
+  @HiveField(3)
+  final String id;
 
   Recording({
+    required this.id,
     required this.title,
     required this.dateTime,
     required this.preview,
@@ -31,7 +35,7 @@ class RecordingsPage extends ConsumerWidget {
     WidgetRef ref,
     Recording recording,
   ) {
-    final recordingNotifier = ref.read(recordingProvider.notifier);
+    final viewModel = ref.read(recordingsViewModelProvider.notifier);
 
     showCupertinoModalPopup(
       context: context,
@@ -53,9 +57,7 @@ class RecordingsPage extends ConsumerWidget {
                 child: const Text('Delete'),
                 onPressed: () {
                   Navigator.pop(context);
-                  recordingNotifier.deleteRecordingByKey(
-                    recording.dateTime.toIso8601String(),
-                  );
+                  viewModel.deleteRecording(recording.id);
                 },
               ),
             ],
@@ -71,28 +73,31 @@ class RecordingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recordings = ref.watch(recordingProvider);
+    final recordings = ref.watch(recordingsViewModelProvider);
 
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(middle: Text('Recordings')),
-      child: ListView.builder(
-        itemCount: recordings.length,
-        itemBuilder: (context, index) {
-          final recording = recordings[index];
-          return RecordingCard(
-            recording: recording,
-            onPlay: () {
-              // TODO: Implement play action
-            },
-            onDelete: () {
-              ref
-                  .read(recordingProvider.notifier)
-                  .deleteRecordingByKey(recording.dateTime.toIso8601String());
-            },
-            onTap: () => _showRecordingDetails(context, ref, recording),
-          );
-        },
-      ),
+      child:
+          recordings.isEmpty
+              ? const Center(child: Text('No recordings yet.'))
+              : ListView.builder(
+                itemCount: recordings.length,
+                itemBuilder: (context, index) {
+                  final recording = recordings[index];
+                  return RecordingCard(
+                    recording: recording,
+                    onPlay: () {
+                      // TODO: Implement play action
+                    },
+                    onDelete: () {
+                      ref
+                          .read(recordingsViewModelProvider.notifier)
+                          .deleteRecording(recording.id);
+                    },
+                    onTap: () => _showRecordingDetails(context, ref, recording),
+                  );
+                },
+              ),
     );
   }
 }
