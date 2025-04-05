@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/audio/audio_service.dart';
 import '../../../widgets/listening_mode_toggle.dart';
 import '../../../widgets/waveform_visualizer.dart';
 import '../../live_listening/ui/live_listening_page.dart';
@@ -17,7 +18,15 @@ class HomePage extends ConsumerWidget {
     final liveState = ref.watch(liveListeningViewModelProvider);
     final liveViewModel = ref.read(liveListeningViewModelProvider.notifier);
 
+    // Determine button/UI state based on audio service init state
+    final bool canStartListening =
+        liveState.audioInitState == AudioServiceInitState.initialized;
+    final bool isInitializing =
+        liveState.audioInitState == AudioServiceInitState.initializing;
+    final String? initError = liveState.audioInitError;
+
     void navigateToLiveListening() {
+      if (!canStartListening || liveState.isListening) return; // Guard clause
       liveViewModel.startListening();
       Navigator.of(context).push(
         CupertinoPageRoute(builder: (context) => const LiveListeningPage()),
@@ -33,25 +42,71 @@ class HomePage extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Center(
-                child: WaveformVisualizer(
-                  isActive: liveState.isListening,
-                  level: liveState.waveformLevel,
+              // Show Initializing or Error state
+              if (isInitializing)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20.0),
+                  child: Center(child: CupertinoActivityIndicator()),
+                ),
+              if (initError != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20.0),
+                  child: Center(
+                    child: Text(
+                      'Audio Error: $initError',
+                      style: TextStyle(
+                        color:
+                            CupertinoTheme.of(context).brightness ==
+                                    Brightness.dark
+                                ? CupertinoColors.systemRed.darkColor
+                                : CupertinoColors.systemRed.color,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+
+              // Show visualizer only when initialized
+              if (canStartListening)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20.0),
+                  child: Center(
+                    child: WaveformVisualizer(
+                      isActive: liveState.isListening,
+                      level: liveState.waveformLevel,
+                    ),
+                  ),
+                ),
+
+              // Spacer to push button/toggles down if visualizer isn't showing
+              if (!canStartListening) const Spacer(),
+
+              const SizedBox(height: 40),
+              // Disable button if not initialized or already listening
+              CupertinoButton.filled(
+                onPressed:
+                    canStartListening && !liveState.isListening
+                        ? navigateToLiveListening
+                        : null,
+                child: Text(
+                  liveState.isListening ? 'Listening...' : 'Start Listening',
                 ),
               ),
-              const SizedBox(height: 40),
-              CupertinoButton.filled(
-                onPressed: navigateToLiveListening,
-                child: const Text('Start Listening'),
-              ),
               const SizedBox(height: 30),
-              ListeningModeToggle(
-                selectedMode: homeState.selectedMode,
-                onChanged: (ListeningMode? mode) {
-                  if (mode != null) {
-                    homeViewModel.setSelectedMode(mode);
-                  }
-                },
+              // Disable toggles if audio isn't ready?
+              AbsorbPointer(
+                absorbing: !canStartListening,
+                child: Opacity(
+                  opacity: canStartListening ? 1.0 : 0.5,
+                  child: ListeningModeToggle(
+                    selectedMode: homeState.selectedMode,
+                    onChanged: (ListeningMode? mode) {
+                      if (mode != null) {
+                        homeViewModel.setSelectedMode(mode);
+                      }
+                    },
+                  ),
+                ),
               ),
               const Spacer(),
             ],

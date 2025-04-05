@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart'; // Import for ValueNotifier
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -7,6 +8,9 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../utils/logger.dart';
 
 part 'audio_service.g.dart';
+
+// Enum for initialization state
+enum AudioServiceInitState { idle, initializing, initialized, error }
 
 // TODO: Define appropriate Filter types or enums
 enum AudioFilter { noiseSuppression, voiceBoost, directional }
@@ -27,6 +31,16 @@ class AudioService {
   StreamSubscription? _recorderSubscription;
   StreamSubscription? _playerSubscription;
 
+  // State Management
+  final ValueNotifier<AudioServiceInitState> initStateNotifier = ValueNotifier(
+    AudioServiceInitState.idle,
+  );
+  String? _initError;
+  String? get initError => _initError;
+
+  bool get isInitialized =>
+      initStateNotifier.value == AudioServiceInitState.initialized;
+
   bool get isRecording => _recorder.isRecording;
   bool get isPlaying => _player.isPlaying;
 
@@ -40,6 +54,13 @@ class AudioService {
   }
 
   Future<void> _initialize() async {
+    if (initStateNotifier.value != AudioServiceInitState.idle)
+      return; // Already init(ializing/ed)
+
+    initStateNotifier.value = AudioServiceInitState.initializing;
+    _initError = null;
+    logger.info('AudioService: Initializing...');
+
     try {
       await _player.openPlayer();
       _isPlayerInitialized = true;
@@ -56,7 +77,13 @@ class AudioService {
       _isRecorderInitialized = true;
       _setupRecorderListener();
       logger.info('AudioService: Recorder initialized.');
+
+      // Mark as initialized
+      initStateNotifier.value = AudioServiceInitState.initialized;
+      logger.info('AudioService: Initialization successful.');
     } catch (e, stack) {
+      _initError = e.toString();
+      initStateNotifier.value = AudioServiceInitState.error;
       logger.error(
         'AudioService: Initialization failed',
         error: e,
@@ -235,6 +262,7 @@ class AudioService {
     await _player.closePlayer();
     await _recorder.closeRecorder();
     await _audioLevelController.close();
+    initStateNotifier.dispose(); // Dispose notifier
     logger.info('AudioService: Disposed.');
   }
 }

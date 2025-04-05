@@ -1,8 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_sound/flutter_sound.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/foundation.dart'; // Import for VoidCallback
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/audio/audio_service.dart';
@@ -12,6 +10,9 @@ part 'live_listening_viewmodel.g.dart';
 
 // Re-using state definition, maybe rename to LiveListeningState if preferred
 class ListeningState {
+  final AudioServiceInitState audioInitState;
+  final String? audioInitError;
+
   final bool isListening;
   final bool noiseSuppression;
   final bool voiceBoost;
@@ -20,6 +21,8 @@ class ListeningState {
   final double waveformLevel;
 
   const ListeningState({
+    this.audioInitState = AudioServiceInitState.idle,
+    this.audioInitError,
     this.isListening = false,
     this.noiseSuppression = true,
     this.voiceBoost = false,
@@ -29,6 +32,8 @@ class ListeningState {
   });
 
   ListeningState copyWith({
+    AudioServiceInitState? audioInitState,
+    String? audioInitError,
     bool? isListening,
     bool? noiseSuppression,
     bool? voiceBoost,
@@ -37,6 +42,8 @@ class ListeningState {
     double? waveformLevel,
   }) {
     return ListeningState(
+      audioInitState: audioInitState ?? this.audioInitState,
+      audioInitError: audioInitError ?? this.audioInitError,
       isListening: isListening ?? this.isListening,
       noiseSuppression: noiseSuppression ?? this.noiseSuppression,
       voiceBoost: voiceBoost ?? this.voiceBoost,
@@ -52,6 +59,8 @@ class ListeningState {
 class LiveListeningViewModel extends _$LiveListeningViewModel {
   late final AudioService _audioService;
   StreamSubscription? _audioLevelSubscription;
+  // Add listener for init state
+  VoidCallback? _initListener;
 
   @override
   ListeningState build() {
@@ -65,16 +74,36 @@ class LiveListeningViewModel extends _$LiveListeningViewModel {
       }
     });
 
+    // Listen to init state changes
+    _initListener = () {
+      state = state.copyWith(
+        audioInitState: _audioService.initStateNotifier.value,
+        audioInitError: _audioService.initError,
+      );
+      // If initialized, set initial volume based on state
+      if (state.audioInitState == AudioServiceInitState.initialized) {
+        _audioService.setOutputVolume(state.outputVolume);
+      }
+    };
+    _audioService.initStateNotifier.addListener(_initListener!);
+
     // Clean up subscription when the provider is disposed
     ref.onDispose(() {
       logger.info(
         "Disposing LiveListeningViewModel, cancelling subscriptions.",
       );
       _audioLevelSubscription?.cancel();
+      _audioService.initStateNotifier.removeListener(
+        _initListener!,
+      ); // Remove listener
     });
 
-    // Initial state, reflecting defaults
-    return const ListeningState();
+    // Initial state, including current init state from service
+    return ListeningState(
+      audioInitState: _audioService.initStateNotifier.value,
+      audioInitError: _audioService.initError,
+      // Keep other defaults
+    );
   }
 
   // Methods delegate to AudioService and update local state
@@ -117,7 +146,11 @@ class LiveListeningViewModel extends _$LiveListeningViewModel {
   }
 
   void setOutputVolume(double value) {
+    // Update state first
     state = state.copyWith(outputVolume: value);
-    _audioService.setOutputVolume(value);
+    // Apply only if audio service is actually initialized
+    if (_audioService.isInitialized) {
+      _audioService.setOutputVolume(value);
+    }
   }
 }
