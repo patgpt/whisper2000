@@ -49,16 +49,19 @@ class RecordingsViewModel extends _$RecordingsViewModel {
   Future<void> addManualRecording(
     String title,
     String preview,
-    String filePath, // Add filePath parameter
+    String filePath,
+    String id, // Add ID as required positional argument
   ) async {
     final newRecording = Recording(
-      id: const Uuid().v4(),
+      id: id, // Use the passed ID
       title: title,
       dateTime: DateTime.now(),
       preview: preview,
-      filePath: filePath, // Store file path
+      filePath: filePath,
     );
-    logger.info('Adding recording metadata: ${newRecording.title}');
+    logger.info(
+      'Adding recording metadata: ${newRecording.title} (ID: ${newRecording.id})',
+    );
     await _recordingBox.put(newRecording.id, newRecording);
     state = _loadRecordingsFromBox(); // Update state
   }

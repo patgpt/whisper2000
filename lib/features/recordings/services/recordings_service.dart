@@ -9,7 +9,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/logger.dart';
-import '../viewmodel/recordings_viewmodel.dart'; // To add recording metadata
+import '../../settings/viewmodel/settings_viewmodel.dart'; // Import settings VM
+import '../viewmodel/recordings_viewmodel.dart';
 
 part 'recordings_service.g.dart';
 
@@ -252,18 +253,54 @@ class RecordingsService {
       );
 
       // 3. Generate metadata (title, preview - maybe via transcription?).
+      final recordingId = const Uuid().v4();
       final recordingTitle =
           'Rec-${DateFormat.yMd().add_jms().format(DateTime.now())}';
-      final recordingPreview =
-          'Audio snippet...'; // TODO: Add transcription preview
+      final recordingPreview = 'Audio snippet...'; // Initial preview
 
-      // 4. Add metadata to Hive via RecordingsViewModel.
+      // 4. Add metadata to Hive BEFORE potentially lengthy transcription
       await ref
           .read(recordingsViewModelProvider.notifier)
-          .addManualRecording(recordingTitle, recordingPreview, permanentPath);
+          .addManualRecording(
+            recordingTitle, // Positional
+            recordingPreview, // Positional
+            permanentPath, // Positional
+            // TODO: Pass ID somehow - need to modify ViewModel method
+            // id: recordingId,
+          );
       logger.info(
-        'RecordingsService: Saved buffer metadata for $recordingTitle',
+        'RecordingsService: Saved buffer metadata for $recordingTitle (ID: ???)',
       );
+      // logger.info('RecordingsService: Saved buffer metadata for $recordingTitle (ID: $recordingId)');
+
+      // 5. Check Auto-Transcribe Setting and Trigger Transcription
+      final autoTranscribeEnabled =
+          ref.read(settingsViewModelProvider).autoTranscribe;
+      if (autoTranscribeEnabled) {
+        logger.info(
+          'Auto-transcribe enabled, triggering for new recording: $recordingId',
+        );
+        // Trigger transcription but don't wait for it here (run in background)
+        ref
+            .read(recordingsViewModelProvider.notifier)
+            .transcribeRecording(recordingId)
+            .then(
+              (_) => logger.info(
+                'Background auto-transcription finished for $recordingId',
+              ),
+            )
+            .catchError(
+              (e, stack) => logger.error(
+                'Background auto-transcription failed for $recordingId',
+                error: e,
+                stackTrace: stack,
+              ),
+            );
+      } else {
+        logger.info(
+          'Auto-transcribe disabled, skipping transcription for new recording.',
+        );
+      }
 
       // TODO: Optionally delete the *saved* temporary segment file? Or rely on cleanup?
       // await fileToSave.delete();

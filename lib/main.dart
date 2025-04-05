@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/utils/logger.dart';
 import 'features/home/ui/home_page.dart';
 import 'features/recordings/ui/recordings_page.dart';
 import 'features/settings/ui/settings_page.dart';
@@ -11,6 +13,10 @@ import 'features/settings/viewmodel/settings_viewmodel.dart';
 void main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
+  logger.info('.env file loaded.');
+
   // Initialize Hive
   await Hive.initFlutter();
   // Register TypeAdapter (available via recordings_page.dart)

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_full_gpl/return_code.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // Import dotenv
 import 'package:http/http.dart' as http;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -16,8 +17,8 @@ TranscriptionService transcriptionService(TranscriptionServiceRef ref) {
 
 /// Service responsible for handling audio transcription.
 class TranscriptionService {
-  final String _openaiApiKey =
-      "YOUR_OPENAI_API_KEY"; // IMPORTANT: Securely manage API keys!
+  // Load API key from environment variables
+  final String _openaiApiKey = dotenv.env['OPENAI_API_KEY'] ?? '';
 
   /// Transcribes the audio file at the given path.
   /// Returns the transcript text or null if transcription fails.
