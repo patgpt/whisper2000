@@ -1,11 +1,11 @@
+import 'dart:math'; // For min function
+
 import 'package:hive/hive.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart'; // For generating IDs
 
 import '../../../core/audio/audio_service.dart'; // Import AudioService
-import '../../../core/transcription/transcription_service.dart';
 import '../../../core/utils/logger.dart';
-import '../services/recordings_service.dart';
 import '../ui/recordings_page.dart';
 
 part 'recordings_viewmodel.g.dart';
@@ -85,43 +85,75 @@ class RecordingsViewModel extends _$RecordingsViewModel {
   }
 
   /// Fetches the full transcript for a recording.
-  Future<String?> getTranscript(String id) async {
+  Future<String?> getTranscript(String id, {bool forceRefresh = false}) async {
     final recording = _recordingBox.get(id);
     if (recording == null) {
-      logger.warning('Cannot get transcript for $id: Not found.');
+      logger.warning('Cannot get transcript for $id: Recording not found.');
       return null;
     }
-    logger.info('Fetching transcript for: ${recording.title}');
 
-    // TODO: Implement actual transcript loading
-    // 1. Check if transcript already exists (e.g., in Recording object/Hive)
-    //    if (recording.transcript != null) return recording.transcript;
-    // 2. If not, call TranscriptionService
-    final transcript = await ref
-        .read(transcriptionServiceProvider)
-        .transcribeAudioFile(recording.filePath);
-    // 3. (Optional) Save the retrieved transcript back to the Recording object in Hive
-    //    if (transcript != null) {
-    //       final updatedRecording = recording.copyWith(transcript: transcript, preview: transcript.substring(0, min(50, transcript.length)));
-    //       await _recordingBox.put(id, updatedRecording);
-    //       state = _loadRecordingsFromBox(); // Update UI state if preview changed
-    //    }
+    if (!forceRefresh &&
+        recording.transcript != null &&
+        recording.transcript!.isNotEmpty) {
+      logger.info('Returning cached transcript for: ${recording.title}');
+      return recording.transcript;
+    }
 
-    return transcript ?? "[Transcription Failed]";
+    logger.info(
+      'Transcript not cached or refresh forced for: ${recording.title}. Calling service...',
+    );
+
+    // 2. Call TranscriptionService
+    String? transcript;
+    try {
+      transcript = await ref
+          .read(transcriptionServiceProvider)
+          .transcribeAudioFile(recording.filePath);
+    } catch (e, stack) {
+      logger.error(
+        'Error calling transcription service for $id',
+        error: e,
+        stackTrace: stack,
+      );
+      return "[Error calling Transcription Service]"; // Return error indication
+    }
+
+    // 3. Save the retrieved transcript back to Hive if valid
+    if (transcript != null &&
+        transcript.isNotEmpty &&
+        !transcript.startsWith('[')) {
+      // Check for errors
+      logger.info('Transcription successful for $id. Saving to Hive.');
+      final newPreview = transcript.substring(0, min(100, transcript.length));
+      final updatedRecording = recording.copyWith(
+        transcript: transcript,
+        preview: newPreview,
+      );
+      await _recordingBox.put(id, updatedRecording);
+      state = _loadRecordingsFromBox(); // Update UI state
+      return transcript;
+    } else {
+      logger.warning(
+        'Transcription service returned null, empty, or error for $id: $transcript',
+      );
+      // Don't save invalid transcript back, just return the result
+      return transcript ?? "[Transcription Failed]";
+    }
   }
 
   /// Initiates transcription for a specific recording.
-  /// Called explicitly, e.g., from a button.
   Future<void> transcribeRecording(String id) async {
     logger.info('Manual transcription requested for recording ID: $id');
-    final transcript = await getTranscript(id); // Reuse getTranscript logic
-    if (transcript != null) {
-      logger.info('Manual transcription completed for $id.');
-      // Optionally update state or show confirmation
+    // Call getTranscript with forceRefresh: true to trigger service call & saving
+    final transcript = await getTranscript(id, forceRefresh: true);
+    if (transcript != null && !transcript.startsWith('[')) {
+      logger.info('Manual transcription completed successfully for $id.');
+      // UI state already updated in getTranscript
     } else {
-      logger.warning('Manual transcription failed for $id.');
-      // Optionally show error message
+      logger.warning(
+        'Manual transcription failed for $id. Result: $transcript',
+      );
+      // TODO: Show error message to user
     }
-    // Note: getTranscript already handles saving if implemented
   }
 }
