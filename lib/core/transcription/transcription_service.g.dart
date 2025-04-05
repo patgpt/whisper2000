@@ -1,27 +1,29 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'live_listening_viewmodel.dart';
+part of 'transcription_service.dart';
 
 // **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
-String _$liveListeningViewModelHash() =>
-    r'fccf2e70a2bb9ecefabe4b795ba9f526f7293f2e';
+String _$transcriptionServiceHash() =>
+    r'1b2d7f242f897166e518525602b80e0eacaa8d74';
 
-/// See also [LiveListeningViewModel].
-@ProviderFor(LiveListeningViewModel)
-final liveListeningViewModelProvider = AutoDisposeNotifierProvider<
-    LiveListeningViewModel, ListeningState>.internal(
-  LiveListeningViewModel.new,
-  name: r'liveListeningViewModelProvider',
+/// See also [transcriptionService].
+@ProviderFor(transcriptionService)
+final transcriptionServiceProvider =
+    AutoDisposeProvider<TranscriptionService>.internal(
+  transcriptionService,
+  name: r'transcriptionServiceProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$liveListeningViewModelHash,
+      : _$transcriptionServiceHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef _$LiveListeningViewModel = AutoDisposeNotifier<ListeningState>;
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef TranscriptionServiceRef = AutoDisposeProviderRef<TranscriptionService>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
