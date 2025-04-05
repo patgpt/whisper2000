@@ -1,7 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
-import 'package:intl/intl.dart';
 
 import '../../../widgets/recording_card.dart';
 import '../viewmodel/recordings_viewmodel.dart';
@@ -18,12 +17,15 @@ class Recording {
   final String preview;
   @HiveField(3)
   final String id;
+  @HiveField(4)
+  final String filePath;
 
   Recording({
     required this.id,
     required this.title,
     required this.dateTime,
     required this.preview,
+    required this.filePath,
   });
 }
 
@@ -50,6 +52,7 @@ class RecordingsPage extends ConsumerWidget {
                 child: const Text('Play'),
                 onPressed: () {
                   Navigator.pop(context);
+                  viewModel.playRecording(recording.id);
                 },
               ),
               CupertinoActionSheetAction(
@@ -87,7 +90,9 @@ class RecordingsPage extends ConsumerWidget {
                   return RecordingCard(
                     recording: recording,
                     onPlay: () {
-                      // TODO: Implement play action
+                      ref
+                          .read(recordingsViewModelProvider.notifier)
+                          .playRecording(recording.id);
                     },
                     onDelete: () {
                       ref

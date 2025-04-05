@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:intl/intl.dart'; // Import for DateFormat
@@ -12,6 +13,10 @@ import '../viewmodel/recordings_viewmodel.dart'; // To add recording metadata
 
 part 'recordings_service.g.dart';
 
+// Constants for buffer logic
+const Duration _segmentDuration = Duration(seconds: 15);
+const int _maxSegments = 2; // Keep last 2 segments for ~30 seconds
+
 @riverpod
 RecordingsService recordingsService(RecordingsServiceRef ref) {
   // Could depend on AudioService, ViewModel, etc.
@@ -23,11 +28,19 @@ class RecordingsService {
   final ProviderRef ref;
   final FlutterSoundRecorder _fileRecorder = FlutterSoundRecorder();
   bool _isRecorderInitialized = false;
-  String? _currentRecordingPath;
-  Timer? _bufferTimer;
-  Duration _bufferDuration = const Duration(seconds: 30);
 
-  // TODO: Add state for whether auto-recording is enabled
+  // Track multiple segment files
+  final List<String> _segmentPaths = [];
+  Timer? _segmentSwitchTimer;
+
+  // State for auto-save
+  bool _isAutoBufferingEnabled = false; // TODO: Link this to settings
+
+  // Define buffer duration (re-add)
+  final Duration _bufferDuration = _segmentDuration * _maxSegments;
+
+  // Remove old single path and timer
+  // String? _currentRecordingPath;
 
   RecordingsService(this.ref) {
     _initialize();
@@ -46,104 +59,205 @@ class RecordingsService {
       );
     }
     // TODO: Check settings for auto-save and start buffering if needed
+    if (_isAutoBufferingEnabled) {
+      startBuffering();
+    }
+  }
+
+  /// Generates a path for a new recording segment.
+  Future<String> _generateSegmentPath() async {
+    final tempDir = await getTemporaryDirectory();
+    final recordingId = const Uuid().v4();
+    return p.join(tempDir.path, 'segment_$recordingId.aac');
+  }
+
+  /// Starts recording a new audio segment.
+  Future<void> _startNextSegment() async {
+    if (!_isRecorderInitialized) {
+      logger.warning('Cannot start segment: Recorder not initialized.');
+      return;
+    }
+    if (_fileRecorder.isRecording) {
+      logger.warning('Cannot start new segment: Recorder already active.');
+      return; // Should not happen if timer logic is correct
+    }
+
+    try {
+      final segmentPath = await _generateSegmentPath();
+      await _fileRecorder.startRecorder(
+        toFile: segmentPath,
+        codec: Codec.aacADTS,
+      );
+      _segmentPaths.add(segmentPath);
+      logger.info('RecordingsService: Started segment: $segmentPath');
+
+      // Remove oldest segments if exceeding max count
+      while (_segmentPaths.length > _maxSegments) {
+        final oldSegmentPath = _segmentPaths.removeAt(0);
+        try {
+          final file = File(oldSegmentPath);
+          if (await file.exists()) {
+            await file.delete();
+            logger.info(
+              'RecordingsService: Deleted old segment: $oldSegmentPath',
+            );
+          }
+        } catch (e) {
+          logger.error(
+            'RecordingsService: Failed to delete old segment $oldSegmentPath',
+            error: e,
+          );
+        }
+      }
+    } catch (e, stack) {
+      logger.error(
+        'RecordingsService: Failed to start segment',
+        error: e,
+        stackTrace: stack,
+      );
+    }
   }
 
   /// Starts recording the microphone input to a temporary buffer file.
   /// This might be constantly running if auto-save is enabled.
   Future<void> startBuffering() async {
-    if (!_isRecorderInitialized || _fileRecorder.isRecording) return;
+    if (!_isRecorderInitialized || _segmentSwitchTimer != null)
+      return; // Already buffering
 
-    // TODO: Implement circular buffer logic
-    // - Record to a file.
-    // - After _bufferDuration, stop and start recording to a new file.
-    // - Keep track of the last N files (e.g., 2 files to cover the 30s duration safely).
-    // - Delete oldest files.
+    logger.info('RecordingsService: Starting continuous buffering...');
+    await _stopCurrentRecording(); // Ensure any previous recording is stopped
+    _segmentPaths.clear(); // Clear any old paths
 
-    // --- Placeholder: Record to single file for now ---
-    try {
-      final tempDir = await getTemporaryDirectory();
-      final recordingId = const Uuid().v4();
-      _currentRecordingPath = p.join(tempDir.path, 'buffer_$recordingId.aac');
-      await _fileRecorder.startRecorder(
-        toFile: _currentRecordingPath,
-        codec: Codec.aacADTS,
-      );
-      logger.info(
-        'RecordingsService: Started buffering to $_currentRecordingPath',
-      );
+    // Start the first segment immediately
+    await _startNextSegment();
 
-      // Set timer to stop after buffer duration (simple approach)
-      _bufferTimer?.cancel();
-      _bufferTimer = Timer(_bufferDuration, () {
-        logger.info(
-          'RecordingsService: Buffer duration reached, stopping recorder.',
-        );
-        stopBuffering(); // Or restart buffering for circular logic
-      });
-    } catch (e, stack) {
-      logger.error(
-        'RecordingsService: Failed to start buffering',
-        error: e,
-        stackTrace: stack,
-      );
-      _currentRecordingPath = null;
-    }
-    // --- End Placeholder ---
+    // Start a periodic timer to switch segments
+    _segmentSwitchTimer = Timer.periodic(_segmentDuration, (timer) async {
+      logger.info('RecordingsService: Segment duration reached, switching...');
+      await _stopCurrentRecording();
+      await _startNextSegment();
+    });
+
+    _isAutoBufferingEnabled = true; // Mark as buffering (or use recorder state)
   }
 
   /// Stops the current buffering process.
   Future<void> stopBuffering() async {
-    _bufferTimer?.cancel();
-    _bufferTimer = null;
+    logger.info('RecordingsService: Stopping continuous buffering...');
+    _segmentSwitchTimer?.cancel();
+    _segmentSwitchTimer = null;
+    await _stopCurrentRecording();
+    _isAutoBufferingEnabled = false;
+    // Optionally delete all remaining segment files if stopping completely
+    // await _deleteAllSegments();
+  }
+
+  /// Helper to safely stop the current recording if active.
+  Future<void> _stopCurrentRecording() async {
     if (_fileRecorder.isRecording) {
       try {
         await _fileRecorder.stopRecorder();
-        logger.info('RecordingsService: Stopped buffering.');
+        logger.info('RecordingsService: Stopped current recording segment.');
       } catch (e, stack) {
         logger.error(
-          'RecordingsService: Failed to stop recorder cleanly',
+          'RecordingsService: Failed to stop recorder segment cleanly',
           error: e,
           stackTrace: stack,
         );
       }
-    } else {
-      logger.info('RecordingsService: Buffering already stopped.');
     }
+  }
+
+  // Add helper to delete all segments (optional cleanup)
+  Future<void> _deleteAllSegments() async {
+    logger.info('RecordingsService: Deleting all remaining segments...');
+    for (final path in List<String>.from(_segmentPaths)) {
+      // Iterate over a copy
+      try {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+          logger.info('RecordingsService: Deleted segment: $path');
+        }
+      } catch (e) {
+        logger.error(
+          'RecordingsService: Failed to delete segment $path',
+          error: e,
+        );
+      }
+    }
+    _segmentPaths.clear();
   }
 
   /// Saves the most recently buffered audio (e.g., last 30s) to permanent storage.
   Future<void> saveLastBuffer() async {
-    if (_currentRecordingPath == null) {
-      logger.warning('RecordingsService: No buffer available to save.');
+    // Determine which segment to save (the most recently completed one)
+    String? segmentToSavePath;
+    if (_segmentPaths.length >= _maxSegments) {
+      // If we have enough segments, save the second to last one
+      segmentToSavePath = _segmentPaths[_segmentPaths.length - _maxSegments];
+    } else if (_segmentPaths.isNotEmpty) {
+      // Otherwise, save the first/only one we have (less than full buffer duration)
+      segmentToSavePath = _segmentPaths.first;
+    }
+
+    if (segmentToSavePath == null) {
+      logger.warning(
+        'RecordingsService: No complete segment available to save.',
+      );
       return;
     }
-    await stopBuffering(); // Ensure current recording is finished
+
+    // No need to stop buffering if it's running continuously
+    // await stopBuffering(); // Maybe keep buffering running?
+
+    logger.info(
+      'RecordingsService: Attempting to save segment: $segmentToSavePath',
+    );
 
     try {
-      // TODO: Implement actual saving logic
-      // 1. Define permanent storage path (e.g., using getApplicationDocumentsDirectory)
-      // 2. Copy the temporary buffer file(s) to the permanent location.
-      // 3. Generate metadata (title, preview - maybe via transcription?).
-      // 4. Add metadata to Hive via RecordingsViewModel.
+      // Check if file exists before attempting to save
+      final fileToSave = File(segmentToSavePath);
+      if (!await fileToSave.exists()) {
+        logger.error(
+          'RecordingsService: Segment file to save does not exist: $segmentToSavePath',
+        );
+        return;
+      }
 
+      // TODO: Implement actual saving logic
+      // 1. Define permanent storage path
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final permanentPath = p.join(
+        appDocDir.path,
+        'recordings',
+        p.basename(segmentToSavePath),
+      );
+      // Ensure recordings directory exists
+      await Directory(p.dirname(permanentPath)).create(recursive: true);
+
+      // 2. Copy the temporary segment file to the permanent location.
+      await fileToSave.copy(permanentPath);
       logger.info(
-        'RecordingsService: Saving buffer from $_currentRecordingPath',
+        'RecordingsService: Copied $segmentToSavePath to $permanentPath',
       );
 
-      // --- Placeholder ---
+      // 3. Generate metadata (title, preview - maybe via transcription?).
       final recordingTitle =
-          'Recording ${DateFormat.jms().format(DateTime.now())}';
-      final recordingPreview = 'Audio snippet saved...'; // Placeholder
+          'Rec-${DateFormat.yMd().add_jms().format(DateTime.now())}';
+      final recordingPreview =
+          'Audio snippet...'; // TODO: Add transcription preview
+
+      // 4. Add metadata to Hive via RecordingsViewModel.
       await ref
           .read(recordingsViewModelProvider.notifier)
-          .addManualRecording(recordingTitle, recordingPreview);
+          .addManualRecording(recordingTitle, recordingPreview, permanentPath);
       logger.info(
         'RecordingsService: Saved buffer metadata for $recordingTitle',
       );
-      // TODO: Delete the temporary buffer file(s) after successful copy/metadata save
-      // File(_currentRecordingPath!).delete();
-      _currentRecordingPath = null;
-      // --- End Placeholder ---
+
+      // TODO: Optionally delete the *saved* temporary segment file? Or rely on cleanup?
+      // await fileToSave.delete();
     } catch (e, stack) {
       logger.error(
         'RecordingsService: Failed to save buffer',
@@ -156,7 +270,7 @@ class RecordingsService {
   /// Cleans up resources.
   Future<void> dispose() async {
     logger.info('RecordingsService: Disposing...');
-    _bufferTimer?.cancel();
+    _segmentSwitchTimer?.cancel();
     if (_fileRecorder.isRecording) await _fileRecorder.stopRecorder();
     await _fileRecorder.closeRecorder();
     logger.info('RecordingsService: Disposed.');

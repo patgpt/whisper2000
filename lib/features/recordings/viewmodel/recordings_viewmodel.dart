@@ -1,10 +1,9 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart'; // For generating IDs
 
+import '../../../core/audio/audio_service.dart'; // Import AudioService
 import '../../../core/utils/logger.dart';
-import '../services/recordings_service.dart'; // Import service
 import '../ui/recordings_page.dart';
 
 part 'recordings_viewmodel.g.dart';
@@ -45,14 +44,19 @@ class RecordingsViewModel extends _$RecordingsViewModel {
 
   /// Adds a new recording (potentially called by RecordingsService).
   /// Requires path to audio file and optional transcript.
-  Future<void> addManualRecording(String title, String preview) async {
+  Future<void> addManualRecording(
+    String title,
+    String preview,
+    String filePath, // Add filePath parameter
+  ) async {
     final newRecording = Recording(
       id: const Uuid().v4(),
       title: title,
       dateTime: DateTime.now(),
       preview: preview,
+      filePath: filePath, // Store file path
     );
-    logger.info('Manually adding recording: ${newRecording.title}');
+    logger.info('Adding recording metadata: ${newRecording.title}');
     await _recordingBox.put(newRecording.id, newRecording);
     state = _loadRecordingsFromBox(); // Update state
   }
@@ -64,11 +68,18 @@ class RecordingsViewModel extends _$RecordingsViewModel {
       logger.warning('Cannot play recording $id: Not found.');
       return;
     }
-    logger.info('Initiating playback for: ${recording.title}');
-    // TODO: Implement playback logic
-    // - Needs access to the audio file associated with the recording ID.
-    // - Use AudioService or a dedicated playback service.
-    // Example: ref.read(audioServiceProvider).playFile(filePath);
+    if (recording.filePath.isEmpty) {
+      logger.warning('Cannot play recording $id: File path is missing.');
+      return;
+    }
+
+    logger.info(
+      'Initiating playback for: ${recording.title} (Path: ${recording.filePath})',
+    );
+    // Use AudioService to play the file
+    // Need access to AudioService provider
+    final audioService = ref.read(audioServiceProvider);
+    await audioService.playFile(recording.filePath);
   }
 
   /// Fetches the full transcript for a recording.

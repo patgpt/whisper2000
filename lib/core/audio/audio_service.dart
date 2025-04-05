@@ -191,6 +191,40 @@ class AudioService {
     }
   }
 
+  /// Plays the specified audio file.
+  Future<void> playFile(String filePath) async {
+    if (!_isPlayerInitialized) {
+      logger.warning('AudioService: Cannot play file, player not initialized.');
+      return;
+    }
+    if (isPlaying) {
+      logger.info(
+        'AudioService: Stopping current playback before starting new file.',
+      );
+      await _player.stopPlayer();
+    }
+    // TODO: May need to handle recorder being active depending on use case
+    // if (isRecording) { await stopListening(); } // Example: Stop live listening?
+
+    try {
+      logger.info('AudioService: Starting playback for file: $filePath');
+      await _player.startPlayer(
+        fromURI: filePath,
+        // codec: Codec.aacADTS, // Specify codec if known/needed
+        whenFinished: () {
+          logger.info('AudioService: Playback finished for file: $filePath');
+          // TODO: Update state if needed (e.g., clear now playing info)
+        },
+      );
+    } catch (e, stack) {
+      logger.error(
+        'AudioService: Failed to play file $filePath',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+  }
+
   /// Cleans up resources when the service is no longer needed.
   Future<void> dispose() async {
     logger.info('AudioService: Disposing...');

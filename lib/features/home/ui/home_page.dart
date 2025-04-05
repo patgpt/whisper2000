@@ -14,12 +14,11 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final homeState = ref.watch(homeViewModelProvider);
     final homeViewModel = ref.read(homeViewModelProvider.notifier);
-    final listeningViewModel = ref.read(
-      liveListeningViewModelProvider.notifier,
-    );
+    final liveState = ref.watch(liveListeningViewModelProvider);
+    final liveViewModel = ref.read(liveListeningViewModelProvider.notifier);
 
     void navigateToLiveListening() {
-      listeningViewModel.startListening();
+      liveViewModel.startListening();
       Navigator.of(context).push(
         CupertinoPageRoute(builder: (context) => const LiveListeningPage()),
       );
@@ -34,7 +33,12 @@ class HomePage extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              const Center(child: WaveformVisualizer(isActive: false)),
+              Center(
+                child: WaveformVisualizer(
+                  isActive: liveState.isListening,
+                  level: liveState.waveformLevel,
+                ),
+              ),
               const SizedBox(height: 40),
               CupertinoButton.filled(
                 onPressed: navigateToLiveListening,

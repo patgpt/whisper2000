@@ -7,7 +7,7 @@ part of 'recordings_viewmodel.dart';
 // **************************************************************************
 
 String _$recordingsViewModelHash() =>
-    r'2729c643abdf8206dfafc005ff3261915c11c2f3';
+    r'2b019098b5b2b84eacf9a70f61343388dd2fb37c';
 
 /// See also [RecordingsViewModel].
 @ProviderFor(RecordingsViewModel)
