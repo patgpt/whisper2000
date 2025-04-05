@@ -262,16 +262,14 @@ class RecordingsService {
       await ref
           .read(recordingsViewModelProvider.notifier)
           .addManualRecording(
-            recordingTitle, // Positional
-            recordingPreview, // Positional
-            permanentPath, // Positional
-            // TODO: Pass ID somehow - need to modify ViewModel method
-            // id: recordingId,
+            recordingTitle,
+            recordingPreview,
+            permanentPath,
+            recordingId, // Pass the generated ID
           );
       logger.info(
-        'RecordingsService: Saved buffer metadata for $recordingTitle (ID: ???)',
+        'RecordingsService: Saved buffer metadata for $recordingTitle (ID: $recordingId)',
       );
-      // logger.info('RecordingsService: Saved buffer metadata for $recordingTitle (ID: $recordingId)');
 
       // 5. Check Auto-Transcribe Setting and Trigger Transcription
       final autoTranscribeEnabled =
