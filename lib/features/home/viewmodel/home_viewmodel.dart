@@ -1,5 +1,7 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+// Use our custom logger
+import '../../../core/utils/logger.dart';
 
 part 'home_viewmodel.g.dart';
 
@@ -27,6 +29,8 @@ class HomeState {
 // ViewModel (Notifier)
 @riverpod
 class HomeViewModel extends _$HomeViewModel {
+  // No need for local logger instance if using global one
+
   @override
   HomeState build() {
     // Initialize state
@@ -36,8 +40,21 @@ class HomeViewModel extends _$HomeViewModel {
 
   void setSelectedMode(ListeningMode mode) {
     state = state.copyWith(selectedMode: mode);
+    // Use global logger instance
+    logger.info('HomeViewModel: Mode selected - $mode');
     // TODO: Communicate selected mode to AudioService or relevant service
-    // ref.read(audioServiceProvider).setListeningMode(mode);
+    // This might involve configuring parameters before starting listening
+    // or calling a method on LiveListeningService/AudioService.
+    // Example:
+    // final liveListeningService = ref.read(liveListeningServiceProvider);
+    // liveListeningService.setListeningModeConfiguration(mode);
+    if (mode == ListeningMode.whisperMode) {
+      logger.info(
+        'Whisper Mode selected - specific audio configuration needed.',
+      );
+      // The actual application of Whisper Mode settings would happen
+      // when startListening is called, potentially using different filters.
+    }
   }
 
   void setListeningState(bool listening) {
