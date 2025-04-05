@@ -22,13 +22,14 @@ class RecordingAdapter extends TypeAdapter<Recording> {
       dateTime: fields[1] as DateTime,
       preview: fields[2] as String,
       filePath: fields[4] as String,
+      transcript: fields[5] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Recording obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.title)
       ..writeByte(1)
@@ -38,7 +39,9 @@ class RecordingAdapter extends TypeAdapter<Recording> {
       ..writeByte(3)
       ..write(obj.id)
       ..writeByte(4)
-      ..write(obj.filePath);
+      ..write(obj.filePath)
+      ..writeByte(5)
+      ..write(obj.transcript);
   }
 
   @override
