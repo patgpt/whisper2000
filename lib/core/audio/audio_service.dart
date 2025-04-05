@@ -206,15 +206,25 @@ class AudioService {
   Future<void> stopListening() async {
     logger.info('AudioService: Stopping listening pipeline...');
     try {
+      // Stop recorder first to finish stream
       if (_recorder.isRecording) {
         await _recorder.stopRecorder();
         logger.info('AudioService: Recorder stopped.');
       }
+      // Cancel subscription *before* closing controller
+      await _recordingDataSubscription?.cancel();
+      _recordingDataSubscription = null;
+      // Close the stream controller
+      await _recordingDataController?.close();
+      _recordingDataController = null;
+      logger.info('AudioService: Recording stream closed.');
+
+      // Stop player
       if (_player.isPlaying) {
         await _player.stopPlayer();
         logger.info('AudioService: Player stopped.');
       }
-      // TODO: Close any intermediate streams (recordingDataController, playbackDataController)
+
       _audioLevelController.add(0.0); // Reset level visualizer
     } catch (e, stack) {
       logger.error(
@@ -223,7 +233,6 @@ class AudioService {
         stackTrace: stack,
       );
     }
-    // TODO: Update internal state
   }
 
   /// Applies the specified audio filters to the pipeline.
