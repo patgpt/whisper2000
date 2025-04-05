@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart'; // Import for kIsWeb, defaultTargetPlatform
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../viewmodel/settings_provider.dart';
+import '../viewmodel/settings_viewmodel.dart';
 
 // Convert to ConsumerWidget
 class SettingsPage extends ConsumerWidget {
@@ -10,10 +10,9 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Add WidgetRef
-    // Read the state and the notifier
-    final settingsState = ref.watch(settingsProvider);
-    final settingsNotifier = ref.read(settingsProvider.notifier);
+    // Use new ViewModel name
+    final settingsState = ref.watch(settingsViewModelProvider);
+    final settingsViewModel = ref.read(settingsViewModelProvider.notifier);
 
     // Determine horizontal padding based on platform
     final isDesktop =
@@ -39,20 +38,16 @@ class SettingsPage extends ConsumerWidget {
                 label: 'Mic Sensitivity',
                 // Read value from state
                 value: settingsState.micSensitivity,
-                onChanged: (value) {
-                  // Call notifier method
-                  settingsNotifier.setMicSensitivity(value);
-                },
+                onChanged:
+                    settingsViewModel.setMicSensitivity, // Use viewmodel method
               ),
               _buildSliderSection(
                 context,
                 label: 'Gain Boost',
                 // Read value from state
                 value: settingsState.gainBoost,
-                onChanged: (value) {
-                  // Call notifier method
-                  settingsNotifier.setGainBoost(value);
-                },
+                onChanged:
+                    settingsViewModel.setGainBoost, // Use viewmodel method
               ),
               const SizedBox(height: 20),
               _buildSwitchTile(
@@ -60,30 +55,24 @@ class SettingsPage extends ConsumerWidget {
                 label: 'Auto Transcribe Recordings',
                 // Read value from state
                 value: settingsState.autoTranscribe,
-                onChanged: (value) {
-                  // Call notifier method
-                  settingsNotifier.setAutoTranscribe(value);
-                },
+                onChanged:
+                    settingsViewModel.setAutoTranscribe, // Use viewmodel method
               ),
               _buildSwitchTile(
                 context,
                 label: 'Enable Whisper Mode Feature',
                 // Read value from state
                 value: settingsState.enableWhisper,
-                onChanged: (value) {
-                  // Call notifier method
-                  settingsNotifier.setEnableWhisper(value);
-                },
+                onChanged:
+                    settingsViewModel.setEnableWhisper, // Use viewmodel method
               ),
               _buildSwitchTile(
                 context,
                 label: 'Auto Save Last 30 Seconds',
                 // Read value from state
                 value: settingsState.autoSave,
-                onChanged: (value) {
-                  // Call notifier method
-                  settingsNotifier.setAutoSave(value);
-                },
+                onChanged:
+                    settingsViewModel.setAutoSave, // Use viewmodel method
               ),
               const SizedBox(height: 20),
               _buildSwitchTile(
@@ -91,11 +80,8 @@ class SettingsPage extends ConsumerWidget {
                 label: 'Dark Mode',
                 // Read value from state
                 value: settingsState.isDarkMode,
-                onChanged: (value) {
-                  // Call notifier method
-                  settingsNotifier.setDarkMode(value);
-                  // TODO: Implement actual theme change logic
-                },
+                onChanged:
+                    settingsViewModel.setDarkMode, // Use viewmodel method
               ),
             ],
           ),
