@@ -113,7 +113,6 @@ class RecordingsPage extends ConsumerWidget {
                     filePath: recording.filePath,
                   ),
                   const SizedBox(height: 15),
-                  // Use the widget built above
                   messageWidget,
                 ],
               ),

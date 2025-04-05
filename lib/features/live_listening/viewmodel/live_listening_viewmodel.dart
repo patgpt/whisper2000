@@ -5,6 +5,10 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/audio/audio_service.dart';
 import '../../../core/utils/logger.dart';
+// Import RecordingsService to trigger save
+import '../../recordings/services/recordings_service.dart';
+// Import SettingsViewModel to check autoSave
+import '../../settings/viewmodel/settings_viewmodel.dart';
 
 part 'live_listening_viewmodel.g.dart';
 
@@ -117,7 +121,34 @@ class LiveListeningViewModel extends _$LiveListeningViewModel {
 
   Future<void> stopListening() async {
     logger.info("LiveListeningViewModel: stopListening called");
+    // Stop the audio stream first
     await _audioService.stopListening();
+
+    // Check settings and potentially save the buffer
+    final settings = ref.read(settingsViewModelProvider);
+    if (settings.autoSave) {
+      logger.info(
+        "Auto-save enabled, triggering saveLastBuffer in RecordingsService...",
+      );
+      try {
+        // Get the RecordingsService instance and call save
+        await ref.read(recordingsServiceProvider).saveLastBuffer();
+        logger.info("saveLastBuffer call completed.");
+      } catch (e, stack) {
+        logger.error(
+          "Error calling saveLastBuffer from LiveListeningViewModel",
+          error: e,
+          stackTrace: stack,
+        );
+        // Handle error? Maybe notify user?
+      }
+    } else {
+      logger.info("Auto-save disabled, not saving buffer.");
+      // If not auto-saving, we might want to discard the temp segments explicitly?
+      // Optional: await ref.read(recordingsServiceProvider)._deleteAllSegments();
+    }
+
+    // Update the UI state last
     state = state.copyWith(isListening: false, waveformLevel: 0.0);
   }
 

@@ -13,6 +13,8 @@ const String _keyAutoTranscribe = 'settings_autoTranscribe';
 const String _keyEnableWhisper = 'settings_enableWhisper';
 const String _keyAutoSave = 'settings_autoSave';
 const String _keyIsDarkMode = 'settings_isDarkMode';
+const String _noiseSuppressionKey = 'noise_suppression_enabled';
+const String _voiceBoostKey = 'voice_boost_enabled';
 
 @Riverpod(keepAlive: true)
 SettingsService settingsService(SettingsServiceRef ref) {
@@ -69,4 +71,14 @@ class SettingsService {
     _prefs.setBool(_keyIsDarkMode, value);
     logger.info('Setting saved: Is Dark Mode = $value');
   }
+
+  // --- Filter Settings ---
+
+  bool get noiseSuppressionEnabled =>
+      _prefs.getBool(_noiseSuppressionKey) ?? false;
+  set noiseSuppressionEnabled(bool value) =>
+      _prefs.setBool(_noiseSuppressionKey, value);
+
+  bool get voiceBoostEnabled => _prefs.getBool(_voiceBoostKey) ?? false;
+  set voiceBoostEnabled(bool value) => _prefs.setBool(_voiceBoostKey, value);
 }

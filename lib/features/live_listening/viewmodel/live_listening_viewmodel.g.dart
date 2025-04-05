@@ -7,7 +7,7 @@ part of 'live_listening_viewmodel.dart';
 // **************************************************************************
 
 String _$liveListeningViewModelHash() =>
-    r'fccf2e70a2bb9ecefabe4b795ba9f526f7293f2e';
+    r'46cc13f079d8ef4aa133ea7e1b79223e5800030e';
 
 /// See also [LiveListeningViewModel].
 @ProviderFor(LiveListeningViewModel)

@@ -1,4 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Permissions -->
+    <!-- Mic permission (likely already added by flutter_sound) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- Add storage permissions (optional but recommended for broader file access) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+
     <application
         android:label="whisper2000"
         android:name="${applicationName}"

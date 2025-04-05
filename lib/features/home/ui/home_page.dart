@@ -6,6 +6,7 @@ import '../../../widgets/listening_mode_toggle.dart';
 import '../../../widgets/waveform_visualizer.dart';
 import '../../live_listening/ui/live_listening_page.dart';
 import '../../live_listening/viewmodel/live_listening_viewmodel.dart';
+import '../../settings/viewmodel/settings_viewmodel.dart';
 import '../viewmodel/home_viewmodel.dart';
 
 class HomePage extends ConsumerWidget {
@@ -17,6 +18,9 @@ class HomePage extends ConsumerWidget {
     final homeViewModel = ref.read(homeViewModelProvider.notifier);
     final liveState = ref.watch(liveListeningViewModelProvider);
     final liveViewModel = ref.read(liveListeningViewModelProvider.notifier);
+    final settingsState = ref.watch(settingsViewModelProvider);
+    final settingsViewModel = ref.read(settingsViewModelProvider.notifier);
+    final audioService = ref.read(audioServiceProvider);
 
     // Determine button/UI state based on audio service init state
     final bool canStartListening =
@@ -27,10 +31,36 @@ class HomePage extends ConsumerWidget {
 
     void navigateToLiveListening() {
       if (!canStartListening || liveState.isListening) return; // Guard clause
-      liveViewModel.startListening();
+
+      // Apply initial filters based on settings *before* starting
+      Set<AudioFilter> initialFilters = {};
+      if (settingsState.enableNoiseSuppression) {
+        initialFilters.add(AudioFilter.noiseSuppression);
+      }
+      if (settingsState.enableVoiceBoost) {
+        initialFilters.add(AudioFilter.voiceBoost);
+      }
+      audioService.applyFilters(initialFilters);
+
+      liveViewModel.startListening(); // Now start with filters applied
+
       Navigator.of(context).push(
         CupertinoPageRoute(builder: (context) => const LiveListeningPage()),
       );
+    }
+
+    // Helper to update audio service filters based on current settings state
+    void _updateAudioFilters(WidgetRef ref) {
+      // Read the latest settings state directly
+      final currentSettings = ref.read(settingsViewModelProvider);
+      Set<AudioFilter> activeFilters = {};
+      if (currentSettings.enableNoiseSuppression) {
+        activeFilters.add(AudioFilter.noiseSuppression);
+      }
+      if (currentSettings.enableVoiceBoost) {
+        activeFilters.add(AudioFilter.voiceBoost);
+      }
+      audioService.applyFilters(activeFilters);
     }
 
     return CupertinoPageScaffold(
@@ -93,18 +123,55 @@ class HomePage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 30),
-              // Disable toggles if audio isn't ready?
+              // Disable toggles if audio isn't ready
               AbsorbPointer(
                 absorbing: !canStartListening,
                 child: Opacity(
                   opacity: canStartListening ? 1.0 : 0.5,
-                  child: ListeningModeToggle(
-                    selectedMode: homeState.selectedMode,
-                    onChanged: (ListeningMode? mode) {
-                      if (mode != null) {
-                        homeViewModel.setSelectedMode(mode);
-                      }
-                    },
+                  child: Column(
+                    // Use Column to stack toggles
+                    children: [
+                      ListeningModeToggle(
+                        selectedMode: homeState.selectedMode,
+                        onChanged: (ListeningMode? mode) {
+                          if (mode != null) {
+                            homeViewModel.setSelectedMode(mode);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 15), // Spacing
+                      // Noise Suppression Toggle
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Noise Suppression'),
+                          CupertinoSwitch(
+                            value: settingsState.enableNoiseSuppression,
+                            onChanged: (bool value) {
+                              settingsViewModel.setNoiseSuppression(value);
+                              // Update filters in AudioService
+                              _updateAudioFilters(ref);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10), // Spacing
+                      // Voice Boost Toggle
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Voice Boost'),
+                          CupertinoSwitch(
+                            value: settingsState.enableVoiceBoost,
+                            onChanged: (bool value) {
+                              settingsViewModel.setVoiceBoost(value);
+                              // Update filters in AudioService
+                              _updateAudioFilters(ref);
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),

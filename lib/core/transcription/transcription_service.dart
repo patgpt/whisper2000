@@ -1,7 +1,8 @@
 import 'dart:io';
 
-import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_full_gpl/return_code.dart';
+// Remove FFmpeg imports
+// import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+// import 'package:ffmpeg_kit_flutter/return_code.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // Import dotenv
 import 'package:http/http.dart' as http;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -102,7 +103,8 @@ class TranscriptionService {
     // --- End Placeholder --- //
   }
 
-  // Example conversion function using ffmpeg_kit_flutter
+  // Remove the unused conversion function
+  /*
   Future<String?> _convertToMp3(String inputPath) async {
     final outputPath =
         '${inputPath.substring(0, inputPath.lastIndexOf('.'))}.mp3';
@@ -125,4 +127,5 @@ class TranscriptionService {
       return null;
     }
   }
+  */
 }

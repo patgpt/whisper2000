@@ -49,14 +49,21 @@ class RecordingsViewModel extends _$RecordingsViewModel {
   Future<void> addManualRecording(
     String title,
     String preview,
+    // Revert to accepting single filePath directly
     String filePath,
     String id, // Add ID as required positional argument
   ) async {
+    // Remove check for empty path if constructor handles it, or keep if desired
+    if (filePath.isEmpty) {
+      logger.error('addManualRecording called with empty filePath. Aborting.');
+      return;
+    }
     final newRecording = Recording(
       id: id, // Use the passed ID
       title: title,
       dateTime: DateTime.now(),
       preview: preview,
+      // Pass filePath directly again
       filePath: filePath,
     );
     logger.info(
@@ -73,16 +80,18 @@ class RecordingsViewModel extends _$RecordingsViewModel {
       logger.warning('Cannot play recording $id: Not found.');
       return;
     }
+    // Revert check to use single filePath
     if (recording.filePath.isEmpty) {
       logger.warning('Cannot play recording $id: File path is missing.');
       return;
     }
 
+    // Use filePath directly
+    // final primaryFilePath = recording.filePaths.first;
     logger.info(
       'Initiating playback for: ${recording.title} (Path: ${recording.filePath})',
     );
     // Use AudioService to play the file
-    // Need access to AudioService provider
     final audioService = ref.read(audioServiceProvider);
     await audioService.playFile(recording.filePath);
   }
@@ -106,12 +115,21 @@ class RecordingsViewModel extends _$RecordingsViewModel {
       'Transcript not cached or refresh forced for: ${recording.title}. Calling service...',
     );
 
+    // Revert check for empty file path
+    if (recording.filePath.isEmpty) {
+      logger.error('Cannot transcribe recording $id: File path is empty.');
+      return "[Error: Recording has no audio file]";
+    }
+
+    // Use filePath directly
+    // final primaryFilePath = recording.filePaths.first;
+
     // 2. Call TranscriptionService
     String? transcript;
     try {
       transcript = await ref
           .read(transcriptionServiceProvider)
-          .transcribeAudioFile(recording.filePath);
+          .transcribeAudioFile(recording.filePath); // Pass filePath directly
     } catch (e, stack) {
       logger.error(
         'Error calling transcription service for $id',

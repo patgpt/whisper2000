@@ -17,10 +17,9 @@ class AppTheme {
     return CupertinoThemeData(
       brightness: brightness,
       primaryColor: primaryColor,
-      // You can customize many other properties:
-      // scaffoldBackgroundColor: brightness == Brightness.dark ? CupertinoColors.black : CupertinoColors.systemGroupedBackground,
-      // barBackgroundColor: brightness == Brightness.dark ? CupertinoColors.darkBackgroundGray : CupertinoColors.systemGrey6,
-      // textTheme: CupertinoTextThemeData(...)
+      textTheme: CupertinoTextThemeData(
+        textStyle: TextStyle(fontFamily: 'Gidole'),
+      ),
     );
   }
 

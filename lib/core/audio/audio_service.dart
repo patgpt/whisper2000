@@ -74,6 +74,13 @@ class AudioService {
   );
   String? _currentlyPlayingFile;
 
+  // --- Pipeline State --- //
+  StreamController<Uint8List>?
+  _processedAudioController; // Processed data for player
+  StreamSubscription?
+  _recordingProcessingSubscription; // Subscribes to raw data
+  Set<AudioFilter> _activeFilters = {}; // Track currently active filters
+
   AudioService() {
     _initialize();
   }
@@ -152,91 +159,201 @@ class AudioService {
     }
     logger.info('AudioService: Starting listening pipeline...');
     try {
-      // Initialize stream controller
-      _recordingDataController = StreamController<Uint8List>();
+      // Initialize stream controllers
+      _recordingDataController =
+          StreamController<
+            Uint8List
+          >.broadcast(); // Make broadcast if needed elsewhere
+      _processedAudioController = StreamController<Uint8List>.broadcast();
 
-      // Start Player first, waiting for data from the stream
+      // Start Player, listening to the PROCESSED audio stream
       await _player.startPlayerFromStream(
         codec: _streamCodec,
         numChannels: _numChannels,
         sampleRate: _sampleRate,
-        bufferSize: 4096, // Example buffer size
-        interleaved: false, // Assuming non-interleaved PCM data
+        bufferSize: 2048,
+        interleaved: true,
       );
-      logger.info('AudioService: Player started, waiting for stream data...');
+      // Feed the player from the processed stream controller
+      _playerSubscription = _processedAudioController!.stream.listen(
+        (buffer) {
+          if (_player.isPlaying && _isPlayerInitialized) {
+            _player.feedFromStream(buffer);
+          }
+        },
+        onError:
+            (e, stack) => logger.error(
+              'Player feed stream error',
+              error: e,
+              stackTrace: stack,
+            ),
+        onDone: () => logger.info('Processed audio stream done.'),
+      );
+      logger.info(
+        'AudioService: Player started, listening to processed stream...',
+      );
 
-      // Start Recorder, feeding data into the stream controller
+      // Start Recorder, feeding data into the RAW audio stream controller
       await _recorder.startRecorder(
         toStream: _recordingDataController!.sink,
         codec: _streamCodec,
         sampleRate: _sampleRate,
         numChannels: _numChannels,
+        // Explicitly set bitrate for PCM16
+        bitRate: 705600,
       );
-      logger.info('AudioService: Recorder started, streaming to controller.');
+      logger.info('AudioService: Recorder started, streaming raw data...');
 
-      // Now manually pipe the stream data to the player's feed method
-      _recordingDataSubscription = _recordingDataController!.stream.listen(
-        (buffer) {
-          // TODO: Apply filters/processing to `buffer` here if needed
-          // final processedBuffer = _applyFiltersToBuffer(buffer);
-          if (_player.isPlaying && _isPlayerInitialized) {
-            _player.feedFromStream(buffer); // Feed buffer to player
-            // _player.feedFromStream(processedBuffer); // Feed processed buffer
-          }
-        },
-        onError: (e, stack) {
-          logger.error(
-            'AudioService: Error in recording stream',
-            error: e,
-            stackTrace: stack,
+      // Start processing the raw audio stream
+      _recordingProcessingSubscription = _recordingDataController!.stream
+          .listen(
+            (buffer) async {
+              // Log buffer size using info level
+              logger.info(
+                'Received buffer with size: ${buffer.lengthInBytes} bytes',
+              );
+
+              // Process the buffer (applies filters)
+              final processedBuffer = await _processAudioBuffer(buffer);
+              // Add processed buffer to the stream the player listens to
+              if (_processedAudioController?.isClosed == false) {
+                _processedAudioController!.add(processedBuffer);
+              }
+            },
+            onError: (e, stack) {
+              logger.error(
+                'AudioService: Error in raw recording stream',
+                error: e,
+                stackTrace: stack,
+              );
+              stopListening(); // Stop pipeline on error
+            },
+            onDone: () {
+              logger.info(
+                'AudioService: Raw recording stream controller closed.',
+              );
+              // Signal end of stream to player?
+              _processedAudioController?.close();
+            },
           );
-          stopListening();
-        },
-        onDone: () {
-          logger.info('AudioService: Recording stream controller closed.');
-          stopListening(); // Stop session if recorder stream ends
-        },
-      );
-
-      // TODO: Insert processing step here if not using direct feed
-      // If complex filtering is needed:
-      // 1. Recorder streams to `_rawAudioController`
-      // 2. Listen to `_rawAudioController.stream`
-      // 3. Process buffer (e.g., call FFMPEG)
-      // 4. Add processed buffer to `_processedAudioController.sink`
-      // 5. Player plays from `_processedAudioController.stream`
-
-      // For now, we assume direct piping (or minimal processing)
-      // We don't need the separate _recordingDataSubscription if piping directly
-
-      // No need for placeholder file recording anymore
-      // await _recorder.startRecorder(toFile: 'placeholder_output.aac');
     } catch (e, stack) {
       logger.error(
         'AudioService: Failed to start listening pipeline',
         error: e,
         stackTrace: stack,
       );
-      await stopListening(); // Ensure cleanup on error
+      await stopListening();
     }
+  }
+
+  /// Placeholder method for processing a single audio buffer.
+  /// This is where FFMPEG or other filter logic would be applied.
+  Future<Uint8List> _processAudioBuffer(Uint8List rawBuffer) async {
+    if (_activeFilters.isEmpty) {
+      // No filters active, pass through raw buffer
+      return rawBuffer;
+    }
+
+    // --- TODO: Implement FFMPEG processing --- //
+    logger.info('Processing buffer with filters: ${_activeFilters.join(', ')}');
+
+    // 1. Construct FFmpeg command based on _activeFilters.
+    //    Example filter graph fragments:
+    //    - Noise Reduction (using RNNoise via af=arnndn=m=path/to/model): Requires model file.
+    //    - Noise Reduction (using af=afftdn): Simpler, built-in.
+    //    - EQ/Voice Boost (using af=superequalizer=... or af=equalizer=...)
+    String filterGraph = _buildFilterGraph();
+    String command = ''; // Command needs input/output handling
+
+    // 2. Execute FFmpeg.
+    //    - Input: `rawBuffer`. How? FFmpeg needs a file or stdin.
+    //      - Option A: Write rawBuffer to temp file, use file path as input.
+    //      - Option B: Pipe rawBuffer to FFmpeg stdin (requires ffmpeg_kit support/config).
+    //    - Output: Processed buffer. How?
+    //      - Option A: FFmpeg writes to another temp file, read that file.
+    //      - Option B: Read processed data from FFmpeg stdout.
+    //    This I/O is the trickiest part for real-time performance.
+
+    // Example using temp files (likely too slow for real-time, illustrates concept):
+    /*
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final inputPath = p.join(tempDir.path, 'ffmpeg_in.pcm');
+      final outputPath = p.join(tempDir.path, 'ffmpeg_out.pcm');
+      await File(inputPath).writeAsBytes(rawBuffer, flush: true);
+
+      // Construct command carefully (input format, filter graph, output format)
+      // Example assuming raw PCM S16LE input/output
+      command = '-f s16le -ar $_sampleRate -ac $_numChannels -i "$inputPath" -af "$filterGraph" -f s16le -ar $_sampleRate -ac $_numChannels "$outputPath" -y';
+      logger.info('FFmpeg Command: $command');
+
+      final session = await FFmpegKit.execute(command);
+      final returnCode = await session.getReturnCode();
+
+      if (ReturnCode.isSuccess(returnCode)) {
+         final processedBytes = await File(outputPath).readAsBytes();
+         logger.info('FFmpeg processing successful, returning ${processedBytes.length} bytes.');
+         await File(inputPath).delete(); // Clean up temps
+         await File(outputPath).delete();
+         return processedBytes;
+      } else {
+         logger.error('FFmpeg processing failed. Code: $returnCode');
+         // Fallback: return raw buffer
+         await File(inputPath).delete();
+         return rawBuffer;
+      }
+    } catch (e, stack) {
+       logger.error('Error during FFmpeg processing', error: e, stackTrace: stack);
+       return rawBuffer; // Fallback
+    }
+    */
+
+    // --- Placeholder: Return raw buffer until FFMPEG is implemented --- //
+    return rawBuffer;
+  }
+
+  /// Helper to build the FFmpeg filter graph string based on active filters.
+  String _buildFilterGraph() {
+    List<String> filters = [];
+    if (_activeFilters.contains(AudioFilter.noiseSuppression)) {
+      // filters.add('afftdn'); // Example built-in NR
+      filters.add(
+        'arnndn=m=/path/to/rnnoise/model/file',
+      ); // Example RNNoise (Needs model!)
+      logger.info('Adding NR filter');
+    }
+    if (_activeFilters.contains(AudioFilter.voiceBoost)) {
+      // filters.add('equalizer=f=1000:width_type=h:width=1000:g=6'); // Example EQ boost
+      filters.add(
+        'compand=attacks=0:points=-80/-900|-60/-60|-30/-30|0/-10|20/-10',
+      ); // Basic compression/boost
+      logger.info('Adding VB filter');
+    }
+    // Add other filters like directional based on state
+
+    return filters.join(','); // Comma-separate filters in the graph
   }
 
   /// Stops the real-time audio processing pipeline.
   Future<void> stopListening() async {
     logger.info('AudioService: Stopping listening pipeline...');
     try {
-      // Stop recorder first to finish stream
+      // Stop recorder first
       if (_recorder.isRecording) {
         await _recorder.stopRecorder();
         logger.info('AudioService: Recorder stopped.');
       }
-      // Cancel subscription *before* closing controller
-      await _recordingDataSubscription?.cancel();
-      _recordingDataSubscription = null;
-      // Close the stream controller
+      // Cancel processing subscription
+      await _recordingProcessingSubscription?.cancel();
+      _recordingProcessingSubscription = null;
+      // Close raw recording controller
       await _recordingDataController?.close();
       _recordingDataController = null;
-      logger.info('AudioService: Recording stream closed.');
+      logger.info('AudioService: Raw recording stream closed.');
+      // Close processed controller (might happen onDone, but close here for safety)
+      await _processedAudioController?.close();
+      _processedAudioController = null;
+      logger.info('AudioService: Processed audio stream closed.');
 
       // Stop player
       if (_player.isPlaying) {
@@ -244,7 +361,8 @@ class AudioService {
         logger.info('AudioService: Player stopped.');
       }
 
-      _audioLevelController.add(0.0); // Reset level visualizer
+      // Reset levels
+      _audioLevelController.add(0.0);
     } catch (e, stack) {
       logger.error(
         'AudioService: Failed to stop listening cleanly',
@@ -255,17 +373,14 @@ class AudioService {
   }
 
   /// Applies the specified audio filters to the pipeline.
-  /// This might involve modifying FFMPEG commands or parameters.
   Future<void> applyFilters(Set<AudioFilter> activeFilters) async {
-    if (!isRecording) {
-      logger.warning("AudioService: Cannot apply filters, not listening.");
-      return;
-    }
-    logger.info('AudioService: Applying filters: ${activeFilters.join(', ')}');
-    // TODO: Implement filter application logic.
-    // This is complex and depends heavily on the chosen audio processing method.
-    // Example: If using FFMPEG, might need to restart the ffmpeg process
-    // with new filter arguments. If using Dart processing, adjust parameters.
+    // Simply store the active filters. The processing loop will use them.
+    _activeFilters = activeFilters;
+    logger.info(
+      'AudioService: Active filters updated: ${_activeFilters.join(', ')}',
+    );
+    // Note: If FFmpeg requires restarting the process on filter change,
+    // more complex logic is needed here (e.g., stop/start pipeline or session).
   }
 
   /// Adjusts the output volume.
@@ -394,17 +509,14 @@ class AudioService {
   /// Cleans up resources when the service is no longer needed.
   Future<void> dispose() async {
     logger.info('AudioService: Disposing...');
-    await stopListening();
-    await stopPlayback(); // Ensure playback is stopped
+    await stopListening(); // Should close controllers and cancel subs
+    // Cancel any remaining subscriptions just in case
     await _recorderSubscription?.cancel();
     await _playerSubscription?.cancel();
-    // Ensure controller is closed if stopListening failed somehow
-    if (_recordingDataController?.isClosed == false) {
-      await _recordingDataController?.close();
-    }
-    // Player/Recorder closed within stopListening or here if needed
-    // await _player.closePlayer(); // Already called if stopListening works
-    // await _recorder.closeRecorder(); // Already called if stopListening works
+    await _recordingProcessingSubscription?.cancel();
+    // Close controllers if somehow still open
+    await _recordingDataController?.close();
+    await _processedAudioController?.close();
     await _audioLevelController.close();
     initStateNotifier.dispose();
     playerStateNotifier.dispose();

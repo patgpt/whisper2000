@@ -15,6 +15,8 @@ class SettingsState {
   final bool enableWhisper;
   final bool autoSave;
   final bool isDarkMode;
+  final bool enableNoiseSuppression;
+  final bool enableVoiceBoost;
 
   // Make constructor const
   const SettingsState({
@@ -24,6 +26,8 @@ class SettingsState {
     this.enableWhisper = false,
     this.autoSave = true,
     this.isDarkMode = false,
+    this.enableNoiseSuppression = false,
+    this.enableVoiceBoost = false,
   });
 
   SettingsState copyWith({
@@ -33,6 +37,8 @@ class SettingsState {
     bool? enableWhisper,
     bool? autoSave,
     bool? isDarkMode,
+    bool? enableNoiseSuppression,
+    bool? enableVoiceBoost,
   }) {
     return SettingsState(
       micSensitivity: micSensitivity ?? this.micSensitivity,
@@ -41,6 +47,9 @@ class SettingsState {
       enableWhisper: enableWhisper ?? this.enableWhisper,
       autoSave: autoSave ?? this.autoSave,
       isDarkMode: isDarkMode ?? this.isDarkMode,
+      enableNoiseSuppression:
+          enableNoiseSuppression ?? this.enableNoiseSuppression,
+      enableVoiceBoost: enableVoiceBoost ?? this.enableVoiceBoost,
     );
   }
 }
@@ -74,6 +83,8 @@ class SettingsViewModel extends _$SettingsViewModel {
       enableWhisper: _settingsService.enableWhisper,
       autoSave: _settingsService.autoSave,
       isDarkMode: _settingsService.isDarkMode,
+      enableNoiseSuppression: _settingsService.noiseSuppressionEnabled,
+      enableVoiceBoost: _settingsService.voiceBoostEnabled,
     );
     // Sync initial auto-save state with RecordingsService
     // Do this *after* initial state is set to avoid race conditions
@@ -116,5 +127,17 @@ class SettingsViewModel extends _$SettingsViewModel {
     state = state.copyWith(isDarkMode: value);
     _settingsService.isDarkMode = value;
     // UI theme updates automatically via MyApp watching this provider state
+  }
+
+  void setNoiseSuppression(bool value) {
+    state = state.copyWith(enableNoiseSuppression: value);
+    _settingsService.noiseSuppressionEnabled = value;
+    // Note: Applying the filter to AudioService is handled by the UI
+  }
+
+  void setVoiceBoost(bool value) {
+    state = state.copyWith(enableVoiceBoost: value);
+    _settingsService.voiceBoostEnabled = value;
+    // Note: Applying the filter to AudioService is handled by the UI
   }
 }
