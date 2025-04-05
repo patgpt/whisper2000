@@ -1,0 +1,44 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# UX and Accessibility Rules
+
+## Accessibility (a11y)
+- Use semantic widgets (`CupertinoListSection`, `CupertinoButton`, etc.)
+- Ensure screen reader accessibility for all interactive elements.
+- Maintain a contrast ratio of **4.5:1 or higher**.
+- Label all buttons/icons using `Semantics` or `Tooltip`.
+- Support larger text sizes and adaptive fonts.
+
+## Interaction Design
+- Tap targets must be at least **48x48dp**.
+- Use haptics for important actions (`HapticFeedback.mediumImpact`).
+- Keep a11y navigation order logical and intuitive.
+
+## Motion & Animation
+- Avoid excessive animation unless meaningful.
+- Respect `reduceMotion` platform setting.
+- All animations must have fallbacks for low-power modes.
+
+## Responsiveness
+- Use adaptive layouts for macOS vs Android/iOS.
+- Respect safe areas and system UI overlays.
+- Use `MediaQuery` and `LayoutBuilder` to adapt to different screen sizes.
+
+## Dark Mode
+- Support light/dark mode toggle from `SettingsPage`.
+- Ensure all colors adapt appropriately (especially text/icons).
+
+## Error States
+- Show user-friendly error messages (no raw exceptions).
+- Offer retry actions where appropriate.
+
+## Onboarding & Consent
+- All sensitive features (recording, transcription, cloud AI) must be opt-in.
+- Show a friendly onboarding modal with clear permissions explanation.
+
+## UX Philosophy
+- Minimalist and functional.
+- Whisper-quiet interface — empower the user without overwhelming.

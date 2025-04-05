@@ -1,0 +1,37 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+ # Flutter Style Rules
+
+## File & Folder Structure
+- Use **feature-first architecture**.
+- Separate `ui`, `viewmodel`, and `services` folders inside each feature.
+- Keep all widgets under `/widgets` unless they are feature-specific.
+
+## Naming Conventions
+- Use `PascalCase` for class names, widgets, and enums.
+- Use `camelCase` for variables and functions.
+- Files should be named in `snake_case`.
+
+## Widget Composition
+- Prefer composition over large stateful widgets.
+- Use `const` wherever possible.
+- Break down complex UIs into small reusable components.
+
+## State Management
+- Use **Riverpod**.
+- Avoid `setState` unless scoped and justified.
+- Structure logic using `Notifier` or `AsyncNotifier` where needed.
+
+## Platform Channels
+- Separate all native calls into `core/platform/` and access via interfaces.
+
+## Error Handling
+- Never swallow exceptions. Log them with context.
+- Use `Either` or similar patterns for return types in critical flows.
+
+## Documentation
+- Public classes and methods must be documented.
+- Use `///` for doc comments above each class and function.
