@@ -2,7 +2,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/logger.dart';
-import '../services/settings_service.dart'; // Import service
+import '../../recordings/services/recordings_service.dart';
+import '../services/settings_service.dart';
 
 part 'settings_viewmodel.g.dart';
 
@@ -58,14 +59,15 @@ final sharedPreferencesProvider = FutureProvider<SharedPreferences>((
 @Riverpod(keepAlive: true) // Keep settings loaded
 class SettingsViewModel extends _$SettingsViewModel {
   late final SettingsService _settingsService;
+  late final RecordingsService _recordingsService;
 
   @override
   SettingsState build() {
-    // Depend on the *generated service provider*
     _settingsService = ref.watch(settingsServiceProvider);
+    _recordingsService = ref.watch(recordingsServiceProvider);
 
     // Load initial state from the service
-    return SettingsState(
+    final initialState = SettingsState(
       micSensitivity: _settingsService.micSensitivity,
       gainBoost: _settingsService.gainBoost,
       autoTranscribe: _settingsService.autoTranscribe,
@@ -73,6 +75,13 @@ class SettingsViewModel extends _$SettingsViewModel {
       autoSave: _settingsService.autoSave,
       isDarkMode: _settingsService.isDarkMode,
     );
+    // Sync initial auto-save state with RecordingsService
+    // Do this *after* initial state is set to avoid race conditions
+    // Using Future.microtask ensures it runs after build completes
+    Future.microtask(
+      () => _recordingsService.setAutoBufferingEnabled(initialState.autoSave),
+    );
+    return initialState;
   }
 
   // Methods update state and call service to persist
@@ -99,6 +108,8 @@ class SettingsViewModel extends _$SettingsViewModel {
   void setAutoSave(bool value) {
     state = state.copyWith(autoSave: value);
     _settingsService.autoSave = value;
+    // Call RecordingsService to enable/disable buffering
+    _recordingsService.setAutoBufferingEnabled(value);
   }
 
   void setDarkMode(bool value) {

@@ -30,6 +30,14 @@ class AudioService {
   bool _isRecorderInitialized = false;
   StreamSubscription? _recorderSubscription;
   StreamSubscription? _playerSubscription;
+  // Add Stream Controllers for pipeline
+  StreamController<Uint8List>? _recordingDataController;
+  StreamSubscription? _recordingDataSubscription;
+  // Define the codec and sample rate for streaming
+  // Note: Check compatibility with potential filters (FFMPEG might prefer specific formats)
+  final Codec _streamCodec = Codec.pcm16;
+  final int _sampleRate = 44100; // Common sample rate
+  final int _numChannels = 1; // Mono
 
   // State Management
   final ValueNotifier<AudioServiceInitState> initStateNotifier = ValueNotifier(
@@ -125,39 +133,48 @@ class AudioService {
     }
     logger.info('AudioService: Starting listening pipeline...');
     try {
-      // TODO: Implement the actual audio pipeline:
-      // 1. Start recorder to capture mic input (maybe to a stream codec like opus or pcm).
-      //    Consider using `startRecorder(toStream: ..., codec: Codec.pcm16)`
-      //    Need a StreamController to receive the recorder's output stream data.
-      // await _recorder.startRecorder(toStream: _recordingDataController.sink, codec: Codec.pcm16);
+      // Initialize stream controller
+      _recordingDataController = StreamController<Uint8List>();
 
-      // 2. Process the stream: Apply filters based on current settings.
-      //    - Use FFMPEG commands via ffmpeg_kit_flutter for complex filtering (NR, EQ).
-      //    - Or potentially use Dart-based libraries if available/suitable.
-      // _recordingDataController.stream.listen((buffer) {
-      //   var processedBuffer = _applyCurrentFilters(buffer);
-      //   _playbackDataController.add(processedBuffer);
-      // });
+      // Start Player first, waiting for data from the stream
+      await _player.startPlayer(
+        fromStream: _recordingDataController!.stream,
+        codec: _streamCodec,
+        sampleRate: _sampleRate,
+        numChannels: _numChannels,
+        whenFinished: () {
+          logger.info('AudioService: Player finished stream naturally.');
+          // Optionally call stopListening if playback ending means stopping the session
+          // stopListening();
+        },
+      );
+      logger.info('AudioService: Player started, waiting for stream data...');
 
-      // 3. Start player to play back the processed stream.
-      //    Use `feedFromStream` or similar method if available with flutter_sound player.
-      //    Or write processed data to a temporary file and play that file (less real-time).
-      // await _player.startPlayerFromStream(codec: Codec.pcm16, numChannels: 1, sampleRate: 44100);
-      // _playbackDataController.stream.listen((buffer) {
-      //    _player.feedFromStream(buffer);
-      // });
-
-      // --- Placeholder ---
+      // Start Recorder, feeding data into the stream controller
       await _recorder.startRecorder(
-        toFile: 'placeholder_output.aac',
-      ); // Using file temporarily
-      logger.info('AudioService: Placeholder recorder started.');
-      // --- End Placeholder ---
+        toStream: _recordingDataController!.sink,
+        codec: _streamCodec,
+        sampleRate: _sampleRate,
+        numChannels: _numChannels,
+      );
+      logger.info('AudioService: Recorder started, streaming to controller.');
 
-      // TODO: Update internal state if needed (e.g., isPipelineActive)
+      // TODO: Insert processing step here if not using direct feed
+      // If complex filtering is needed:
+      // 1. Recorder streams to `_rawAudioController`
+      // 2. Listen to `_rawAudioController.stream`
+      // 3. Process buffer (e.g., call FFMPEG)
+      // 4. Add processed buffer to `_processedAudioController.sink`
+      // 5. Player plays from `_processedAudioController.stream`
+
+      // For now, we assume direct piping (or minimal processing)
+      // We don't need the separate _recordingDataSubscription if piping directly
+
+      // No need for placeholder file recording anymore
+      // await _recorder.startRecorder(toFile: 'placeholder_output.aac');
     } catch (e, stack) {
       logger.error(
-        'AudioService: Failed to start listening',
+        'AudioService: Failed to start listening pipeline',
         error: e,
         stackTrace: stack,
       );

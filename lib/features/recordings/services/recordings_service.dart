@@ -33,8 +33,8 @@ class RecordingsService {
   final List<String> _segmentPaths = [];
   Timer? _segmentSwitchTimer;
 
-  // State for auto-save
-  bool _isAutoBufferingEnabled = false; // TODO: Link this to settings
+  // Remove internal flag - controlled externally now
+  // bool _isAutoBufferingEnabled = false;
 
   // Define buffer duration (re-add)
   final Duration _bufferDuration = _segmentDuration * _maxSegments;
@@ -58,10 +58,8 @@ class RecordingsService {
         stackTrace: stack,
       );
     }
-    // TODO: Check settings for auto-save and start buffering if needed
-    if (_isAutoBufferingEnabled) {
-      startBuffering();
-    }
+    // Don't start buffering automatically here anymore
+    // if (_isAutoBufferingEnabled) { ... }
   }
 
   /// Generates a path for a new recording segment.
@@ -118,11 +116,24 @@ class RecordingsService {
     }
   }
 
-  /// Starts recording the microphone input to a temporary buffer file.
-  /// This might be constantly running if auto-save is enabled.
+  /// Starts or stops the continuous background audio buffering.
+  Future<void> setAutoBufferingEnabled(bool enabled) async {
+    logger.info("RecordingsService: Setting Auto Buffering to $enabled");
+    if (enabled) {
+      await startBuffering();
+    } else {
+      await stopBuffering();
+    }
+  }
+
+  /// Starts recording the microphone input to temporary segment files.
   Future<void> startBuffering() async {
-    if (!_isRecorderInitialized || _segmentSwitchTimer != null)
-      return; // Already buffering
+    if (!_isRecorderInitialized || _segmentSwitchTimer != null) {
+      logger.info(
+        "RecordingsService: startBuffering called but already buffering or not ready.",
+      );
+      return; // Already buffering or not ready
+    }
 
     logger.info('RecordingsService: Starting continuous buffering...');
     await _stopCurrentRecording(); // Ensure any previous recording is stopped
@@ -137,19 +148,17 @@ class RecordingsService {
       await _stopCurrentRecording();
       await _startNextSegment();
     });
-
-    _isAutoBufferingEnabled = true; // Mark as buffering (or use recorder state)
   }
 
-  /// Stops the current buffering process.
+  /// Stops the continuous buffering process.
   Future<void> stopBuffering() async {
     logger.info('RecordingsService: Stopping continuous buffering...');
     _segmentSwitchTimer?.cancel();
     _segmentSwitchTimer = null;
     await _stopCurrentRecording();
-    _isAutoBufferingEnabled = false;
-    // Optionally delete all remaining segment files if stopping completely
-    // await _deleteAllSegments();
+    // Don't change internal flag here
+    // _isAutoBufferingEnabled = false;
+    // await _deleteAllSegments(); // Keep segments until explicitly saved or overwritten
   }
 
   /// Helper to safely stop the current recording if active.

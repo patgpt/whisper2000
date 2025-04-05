@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/logger.dart';
 import '../../../widgets/waveform_visualizer.dart';
+import '../../recordings/services/recordings_service.dart';
 import '../viewmodel/live_listening_viewmodel.dart';
 
 // Convert to ConsumerWidget
@@ -78,6 +80,20 @@ class LiveListeningPage extends ConsumerWidget {
                 liveViewModel.setDirectionalMode,
               ),
               const Spacer(),
+              // Add Save Buffer Button
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10.0),
+                child: CupertinoButton(
+                  // TODO: Consider disabling if not enough buffer exists yet
+                  onPressed: () async {
+                    await ref.read(recordingsServiceProvider).saveLastBuffer();
+                    logger.info(
+                      'Save Last 30s button pressed and action completed.',
+                    );
+                  },
+                  child: const Text('Save Last 30s'),
+                ),
+              ),
               CupertinoButton(
                 color: CupertinoColors.destructiveRed,
                 // Use viewmodel method to stop
