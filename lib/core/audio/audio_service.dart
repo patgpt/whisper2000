@@ -301,14 +301,18 @@ class AudioService {
   /// Cleans up resources when the service is no longer needed.
   Future<void> dispose() async {
     logger.info('AudioService: Disposing...');
+    await stopListening(); // Call stopListening to ensure streams/player/recorder are stopped
     await _recorderSubscription?.cancel();
     await _playerSubscription?.cancel();
-    if (_recorder.isRecording) await _recorder.stopRecorder();
-    if (_player.isPlaying) await _player.stopPlayer();
-    await _player.closePlayer();
-    await _recorder.closeRecorder();
+    // Ensure controller is closed if stopListening failed somehow
+    if (_recordingDataController?.isClosed == false) {
+      await _recordingDataController?.close();
+    }
+    // Player/Recorder closed within stopListening or here if needed
+    // await _player.closePlayer(); // Already called if stopListening works
+    // await _recorder.closeRecorder(); // Already called if stopListening works
     await _audioLevelController.close();
-    initStateNotifier.dispose(); // Dispose notifier
+    initStateNotifier.dispose();
     logger.info('AudioService: Disposed.');
   }
 }
