@@ -1,34 +1,31 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:whisper2000/core/theme/app_theme.dart';
 
 import '../../../widgets/listening_mode_toggle.dart';
 import '../../../widgets/waveform_visualizer.dart';
 import '../../live_listening/ui/live_listening_page.dart';
 import '../../live_listening/viewmodel/listening_state_provider.dart';
+import '../viewmodel/home_viewmodel.dart';
 
-class HomePage extends ConsumerStatefulWidget {
+class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   @override
-  ConsumerState<HomePage> createState() => _HomePageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final homeState = ref.watch(homeViewModelProvider);
+    final homeViewModel = ref.read(homeViewModelProvider.notifier);
+    final listeningViewModel = ref.read(listeningStateProvider.notifier);
 
-enum ListeningMode { speechBoost, whisperMode, safeListen }
+    void navigateToLiveListening() {
+      listeningViewModel.startListening();
+      Navigator.of(context).push(
+        CupertinoPageRoute(builder: (context) => const LiveListeningPage()),
+      );
+    }
 
-class _HomePageState extends ConsumerState<HomePage> {
-  ListeningMode _selectedMode = ListeningMode.speechBoost;
-
-  void _navigateToLiveListening() {
-    ref.read(listeningStateProvider.notifier).startListening();
-    Navigator.of(
-      context,
-    ).push(CupertinoPageRoute(builder: (context) => const LiveListeningPage()));
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(middle: Text('Whisper 2000')),
+      navigationBar: const CupertinoNavigationBar(middle: Text('EchoGhost')),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -36,30 +33,22 @@ class _HomePageState extends ConsumerState<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              // Placeholder for Waveform Animation
-              const Center(
-                child:
-                    WaveformVisualizer(), // TODO: Connect to listening state?
-              ),
+              const Center(child: WaveformVisualizer(isActive: false)),
               const SizedBox(height: 40),
               CupertinoButton.filled(
-                onPressed: _navigateToLiveListening,
+                onPressed: navigateToLiveListening,
                 child: const Text('Start Listening'),
               ),
               const SizedBox(height: 30),
               ListeningModeToggle(
-                selectedMode: _selectedMode,
+                selectedMode: homeState.selectedMode,
                 onChanged: (ListeningMode? mode) {
                   if (mode != null) {
-                    setState(() {
-                      _selectedMode = mode;
-                      // TODO: Potentially update a provider for the selected mode
-                    });
+                    homeViewModel.setSelectedMode(mode);
                   }
                 },
               ),
-              // Add more UI elements as needed
-              const Spacer(), // Pushes elements to center/top
+              const Spacer(),
             ],
           ),
         ),

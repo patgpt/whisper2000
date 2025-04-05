@@ -75,7 +75,7 @@ class ListeningStateNotifier extends StateNotifier<ListeningState> {
 
       // Start listening to recorder progress
       _recorderSubscription = _recorder.onProgress?.listen((e) {
-        if (e != null && e.decibels != null) {
+        if (e.decibels != null) {
           // Simple mapping of decibels to a 0.0-1.0 level
           // This needs tuning based on expected dB range (-120 to 0)
           double level = (e.decibels! + 120) / 120;
@@ -98,8 +98,9 @@ class ListeningStateNotifier extends StateNotifier<ListeningState> {
   }
 
   Future<void> startListening() async {
-    if (!_isRecorderInitialized || !_isPlayerInitialized || state.isListening)
+    if (!_isRecorderInitialized || !_isPlayerInitialized || state.isListening) {
       return;
+    }
 
     try {
       // TODO: Define paths and codecs

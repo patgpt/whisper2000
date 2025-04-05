@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+import 'core/theme/app_theme.dart';
 import 'features/home/ui/home_page.dart';
 import 'features/recordings/ui/recordings_page.dart';
 import 'features/settings/ui/settings_page.dart';
@@ -51,12 +52,8 @@ class MyApp extends ConsumerWidget {
         );
 
         return CupertinoApp(
-          title: 'Whisper2000',
-          theme: CupertinoThemeData(
-            // Set brightness based on the provider state
-            brightness: isDarkMode ? Brightness.dark : Brightness.light,
-            // primaryColor: CupertinoColors.systemBlue, // Customize if needed
-          ),
+          title: 'EchoGhost',
+          theme: isDarkMode ? AppTheme.darkTheme : AppTheme.lightTheme,
           home: const MainAppScaffold(),
         );
       },
