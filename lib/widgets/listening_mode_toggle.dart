@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
-import '../features/home/ui/home_page.dart'; // Updated path
+// Import enum from home viewmodel
+import '../features/home/viewmodel/home_viewmodel.dart';
 
 class ListeningModeToggle extends StatelessWidget {
   final ListeningMode selectedMode;
