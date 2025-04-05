@@ -137,16 +137,10 @@ class AudioService {
       _recordingDataController = StreamController<Uint8List>();
 
       // Start Player first, waiting for data from the stream
-      await _player.startPlayer(
-        fromStream: _recordingDataController!.stream,
+      await _player.startPlayerFromStream(
         codec: _streamCodec,
-        sampleRate: _sampleRate,
         numChannels: _numChannels,
-        whenFinished: () {
-          logger.info('AudioService: Player finished stream naturally.');
-          // Optionally call stopListening if playback ending means stopping the session
-          // stopListening();
-        },
+        sampleRate: _sampleRate,
       );
       logger.info('AudioService: Player started, waiting for stream data...');
 
@@ -158,6 +152,30 @@ class AudioService {
         numChannels: _numChannels,
       );
       logger.info('AudioService: Recorder started, streaming to controller.');
+
+      // Now manually pipe the stream data to the player's feed method
+      _recordingDataSubscription = _recordingDataController!.stream.listen(
+        (buffer) {
+          // TODO: Apply filters/processing to `buffer` here if needed
+          // final processedBuffer = _applyFiltersToBuffer(buffer);
+          if (_player.isPlaying && _isPlayerInitialized) {
+            _player.feedFromStream(buffer); // Feed buffer to player
+            // _player.feedFromStream(processedBuffer); // Feed processed buffer
+          }
+        },
+        onError: (e, stack) {
+          logger.error(
+            'AudioService: Error in recording stream',
+            error: e,
+            stackTrace: stack,
+          );
+          stopListening();
+        },
+        onDone: () {
+          logger.info('AudioService: Recording stream controller closed.');
+          stopListening(); // Stop session if recorder stream ends
+        },
+      );
 
       // TODO: Insert processing step here if not using direct feed
       // If complex filtering is needed:
