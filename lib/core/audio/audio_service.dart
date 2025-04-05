@@ -15,6 +15,8 @@ enum AudioServiceInitState { idle, initializing, initialized, error }
 // TODO: Define appropriate Filter types or enums
 enum AudioFilter { noiseSuppression, voiceBoost, directional }
 
+enum PlaybackState { stopped, playing, paused }
+
 @Riverpod(keepAlive: true)
 AudioService audioService(AudioServiceRef ref) {
   // Creates a singleton instance managed by Riverpod
@@ -46,16 +48,31 @@ class AudioService {
   String? _initError;
   String? get initError => _initError;
 
+  // Public getters for state
+  AudioServiceInitState get initState => initStateNotifier.value;
   bool get isInitialized =>
       initStateNotifier.value == AudioServiceInitState.initialized;
-
   bool get isRecording => _recorder.isRecording;
-  bool get isPlaying => _player.isPlaying;
+  PlaybackState get playbackState => playerStateNotifier.value;
+  bool get isPlaying => playerStateNotifier.value == PlaybackState.playing;
+  String? get currentlyPlayingFile => _currentlyPlayingFile;
 
   // StreamController for processed audio levels (e.g., for visualiser)
   final StreamController<double> _audioLevelController =
       StreamController.broadcast();
   Stream<double> get audioLevelStream => _audioLevelController.stream;
+
+  // --- Player State --- //
+  final ValueNotifier<PlaybackState> playerStateNotifier = ValueNotifier(
+    PlaybackState.stopped,
+  );
+  final ValueNotifier<Duration> playerPositionNotifier = ValueNotifier(
+    Duration.zero,
+  );
+  final ValueNotifier<Duration> playerDurationNotifier = ValueNotifier(
+    Duration.zero,
+  );
+  String? _currentlyPlayingFile;
 
   AudioService() {
     _initialize();
@@ -117,9 +134,11 @@ class AudioService {
 
   void _setupPlayerListener() {
     if (!_isPlayerInitialized) return;
-    // TODO: Listen to player state if needed (e.g., end of playback)
     _playerSubscription = _player.onProgress?.listen((e) {
-      // Handle playback progress if necessary
+      if (e != null) {
+        playerPositionNotifier.value = e.position;
+        playerDurationNotifier.value = e.duration;
+      }
     });
   }
 
@@ -270,38 +289,113 @@ class AudioService {
       logger.warning('AudioService: Cannot play file, player not initialized.');
       return;
     }
-    if (isPlaying) {
+    if (isPlaying || playerStateNotifier.value == PlaybackState.paused) {
       logger.info(
         'AudioService: Stopping current playback before starting new file.',
       );
-      await _player.stopPlayer();
+      await stopPlayback(); // Stop previous playback completely
     }
-    // TODO: May need to handle recorder being active depending on use case
-    // if (isRecording) { await stopListening(); } // Example: Stop live listening?
 
     try {
       logger.info('AudioService: Starting playback for file: $filePath');
       await _player.startPlayer(
         fromURI: filePath,
-        // codec: Codec.aacADTS, // Specify codec if known/needed
         whenFinished: () {
           logger.info('AudioService: Playback finished for file: $filePath');
-          // TODO: Update state if needed (e.g., clear now playing info)
+          // Reset state when playback completes naturally
+          playerStateNotifier.value = PlaybackState.stopped;
+          playerPositionNotifier.value = Duration.zero;
+          _currentlyPlayingFile = null;
         },
       );
+      playerStateNotifier.value = PlaybackState.playing;
+      _currentlyPlayingFile = filePath;
     } catch (e, stack) {
       logger.error(
         'AudioService: Failed to play file $filePath',
         error: e,
         stackTrace: stack,
       );
+      playerStateNotifier.value = PlaybackState.stopped; // Reset state on error
+      _currentlyPlayingFile = null;
+    }
+  }
+
+  /// Pauses the current playback.
+  Future<void> pausePlayback() async {
+    if (!isPlaying || !_isPlayerInitialized) return;
+    try {
+      await _player.pausePlayer();
+      playerStateNotifier.value = PlaybackState.paused;
+      logger.info('AudioService: Playback paused.');
+    } catch (e, stack) {
+      logger.error(
+        'AudioService: Failed to pause player',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+  }
+
+  /// Resumes the paused playback.
+  Future<void> resumePlayback() async {
+    if (playerStateNotifier.value != PlaybackState.paused ||
+        !_isPlayerInitialized)
+      return;
+    try {
+      await _player.resumePlayer();
+      playerStateNotifier.value = PlaybackState.playing;
+      logger.info('AudioService: Playback resumed.');
+    } catch (e, stack) {
+      logger.error(
+        'AudioService: Failed to resume player',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+  }
+
+  /// Stops the current playback completely.
+  Future<void> stopPlayback() async {
+    if (playerStateNotifier.value == PlaybackState.stopped ||
+        !_isPlayerInitialized)
+      return;
+    try {
+      await _player.stopPlayer();
+      logger.info('AudioService: Playback stopped.');
+    } catch (e, stack) {
+      logger.error(
+        'AudioService: Failed to stop player',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+    // Reset state regardless of error during stop
+    playerStateNotifier.value = PlaybackState.stopped;
+    playerPositionNotifier.value = Duration.zero;
+    // Keep duration? playerDurationNotifier.value = Duration.zero;
+    _currentlyPlayingFile = null;
+  }
+
+  /// Seeks to a specific position in the current playback.
+  Future<void> seekPlayback(Duration position) async {
+    if (playerStateNotifier.value == PlaybackState.stopped ||
+        !_isPlayerInitialized)
+      return;
+    try {
+      await _player.seekToPlayer(position);
+      playerPositionNotifier.value = position; // Update position immediately
+      logger.info('AudioService: Seeked to $position');
+    } catch (e, stack) {
+      logger.error('AudioService: Failed to seek', error: e, stackTrace: stack);
     }
   }
 
   /// Cleans up resources when the service is no longer needed.
   Future<void> dispose() async {
     logger.info('AudioService: Disposing...');
-    await stopListening(); // Call stopListening to ensure streams/player/recorder are stopped
+    await stopListening();
+    await stopPlayback(); // Ensure playback is stopped
     await _recorderSubscription?.cancel();
     await _playerSubscription?.cancel();
     // Ensure controller is closed if stopListening failed somehow
@@ -313,6 +407,9 @@ class AudioService {
     // await _recorder.closeRecorder(); // Already called if stopListening works
     await _audioLevelController.close();
     initStateNotifier.dispose();
+    playerStateNotifier.dispose();
+    playerPositionNotifier.dispose();
+    playerDurationNotifier.dispose();
     logger.info('AudioService: Disposed.');
   }
 }

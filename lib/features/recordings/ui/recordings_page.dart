@@ -2,7 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 
+import '../../../core/audio/audio_service.dart';
 import '../../../widgets/recording_card.dart';
+import '../../../widgets/recording_playback_controls.dart';
 import '../viewmodel/recordings_viewmodel.dart';
 
 part 'recordings_page.g.dart';
@@ -80,15 +82,19 @@ class RecordingsPage extends ConsumerWidget {
 
             return CupertinoActionSheet(
               title: Text(recording.title),
-              message: Text(displayMessage),
+              message: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RecordingPlaybackControls(
+                    key: ValueKey(recording.id),
+                    recordingId: recording.id,
+                    filePath: recording.filePath,
+                  ),
+                  const SizedBox(height: 15),
+                  Text(displayMessage, textAlign: TextAlign.center),
+                ],
+              ),
               actions: <CupertinoActionSheetAction>[
-                CupertinoActionSheetAction(
-                  child: const Text('Play'),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    viewModel.playRecording(recording.id);
-                  },
-                ),
                 CupertinoActionSheetAction(
                   child: const Text('Transcribe'),
                   onPressed: () {
@@ -108,6 +114,7 @@ class RecordingsPage extends ConsumerWidget {
               cancelButton: CupertinoActionSheetAction(
                 child: const Text('Cancel'),
                 onPressed: () {
+                  ref.read(audioServiceProvider).stopPlayback();
                   Navigator.pop(context);
                 },
               ),
@@ -133,11 +140,6 @@ class RecordingsPage extends ConsumerWidget {
                   final recording = recordings[index];
                   return RecordingCard(
                     recording: recording,
-                    onPlay: () {
-                      ref
-                          .read(recordingsViewModelProvider.notifier)
-                          .playRecording(recording.id);
-                    },
                     onDelete: () {
                       ref
                           .read(recordingsViewModelProvider.notifier)

@@ -2,7 +2,7 @@ import 'dart:math'; // For min function
 
 import 'package:hive/hive.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:uuid/uuid.dart'; // For generating IDs
+import 'package:whisper2000/core/transcription/transcription_service.dart';
 
 import '../../../core/audio/audio_service.dart'; // Import AudioService
 import '../../../core/utils/logger.dart';
